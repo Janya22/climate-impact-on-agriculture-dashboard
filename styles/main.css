@@ -1,0 +1,77 @@
+:root {
+  --bg: #f5f8fc;
+  --surface: #ffffff;
+  --border: #dbe6f2;
+  --accent: #1a3a6b;
+  --text: #1a2a3a;
+  --muted: #5a7490;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI", system-ui, sans-serif;
+  min-height: 100vh;
+}
+
+.hero {
+  background: linear-gradient(135deg, #1a3a6b 0%, #2255aa 100%);
+  color: #fff;
+  padding: 20px 28px;
+}
+
+.hero h1 {
+  font-size: 24px;
+  margin-bottom: 6px;
+}
+
+.hero p {
+  color: #d4e1f2;
+  font-size: 13px;
+}
+
+.controls {
+  display: flex;
+  gap: 10px;
+  padding: 12px 28px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.control-pill {
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #f2f6fb;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: 14px;
+  padding: 16px 28px;
+}
+
+.card {
+  min-height: 220px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.card-large {
+  grid-row: span 2;
+}
+
+.card h2 {
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
