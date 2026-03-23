@@ -28,11 +28,29 @@
   </div>
     </header>
 
-    <section class="controls">
-    <div class="control-pill">Year: <span id="yearLabel">2010</span></div>
-    <div class="control-pill">Metric: Yield</div>
-    <div class="control-pill">Countries: All</div>
-  </section>
+  <div id="controls">
+    <div class="ctrl-group">
+    <label>Metric</label>
+    <select id="metricSel">
+      <option value="Yield">Yield (kg/ha)</option>
+      <option value="Production">Production (t)</option>
+      <option value="Area harvested">Area Harvested (ha)</option>
+    </select>
+  </div>
+  <div class="ctrl-group">
+    <label>Year</label>
+    <input type="range" id="yearSlider" min="1961" max="2023" value="2010" step="1" />
+    <span id="yearLabel">2010</span>
+  </div>
+  <div class="ctrl-group">
+    <label>Avg Window</label>
+    <select id="windowSel">
+      <option value="1">Single Year</option>
+      <option value="5" selected>5-Year Avg</option>
+      <option value="10">10-Year Avg</option>
+    </select>
+  </div>
+  </div>
 
   <main class="grid">
     <div class="card card-large" id="map-container">
