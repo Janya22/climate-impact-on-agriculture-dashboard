@@ -43,6 +43,35 @@
     <span id="yearLabel">2010</span>
   </div>
   <div class="ctrl-group">
+    <label>Countries</label>
+    <div class="multisel-wrap" id="countrySel-wrap">
+      <button class="multisel-trigger" id="countrySel-trigger" type="button">
+        <span class="multisel-pills-wrap" id="countrySel-pills">
+          <span class="multisel-placeholder">All countries</span>
+        </span>
+        <span class="multisel-caret">▾</span>
+      </button>
+      <div class="multisel-dropdown" id="countrySel-dropdown">
+        <input class="multisel-search" id="countrySel-search" type="text" placeholder="Search countries…">
+        <div class="multisel-list" id="countrySel-list"></div>
+      </div>
+    </div>
+  </div>
+    <div class="ctrl-group">
+    <label>Crops</label>
+    <div class="multisel-wrap" id="cropSel-wrap">
+      <button class="multisel-trigger" id="cropSel-trigger" type="button">
+        <span class="multisel-pills-wrap" id="cropSel-pills">
+          <span class="multisel-placeholder">All crops</span>
+        </span>
+        <span class="multisel-caret">▾</span>
+      </button>
+      <div class="multisel-dropdown" id="cropSel-dropdown">
+        <div class="multisel-list" id="cropSel-list"></div>
+      </div>
+    </div>
+  </div>
+  <div class="ctrl-group">
     <label>Avg Window</label>
     <select id="windowSel">
       <option value="1">Single Year</option>
@@ -50,6 +79,8 @@
       <option value="10">10-Year Avg</option>
     </select>
   </div>
+  <button id="resetBtn">Reset Selection</button>
+  <span class="selected-info" id="selInfo">Showing all countries and all crops</span>
   </div>
 
   <main class="grid">
