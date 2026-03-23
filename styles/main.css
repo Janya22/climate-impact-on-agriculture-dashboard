@@ -75,3 +75,34 @@ body {
   text-transform: uppercase;
   letter-spacing: .08em;
 }
+
+#statBadges {
+  display: flex;
+  gap: 18px;
+  margin-top: 6px;
+}
+
+.stat-badge {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-badge .val {
+  font-size: 18px;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.1;
+}
+
+.stat-badge .lbl {
+  font-size: 10px;
+  color: #a0b8d8;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.stat-divider {
+  width: 1px;
+  background: rgba(255,255,255,0.2);
+  align-self: stretch;
+}
