@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Climate Risks to Global Food Production</title>
 
-    <script src="d3/d3.v7.min.js"></script>
+    <script src="d3/d3.v7.min.js"></script>  
   <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
 
   <link rel="stylesheet" href="styles/main.css">
@@ -18,6 +18,29 @@
         Regions highlighted here represent potential climate stress hotspots (not proven causation, as many factors influence crop yields,production and area harvested)
     </p>
     </header>
+
+    <section class="controls">
+    <div class="control-pill">Year: <span id="yearLabel">2010</span></div>
+    <div class="control-pill">Metric: Yield</div>
+    <div class="control-pill">Countries: All</div>
+  </section>
+
+  <main class="grid">
+    <div class="card card-large" id="map-container">
+      <h2>Global Risk Distribution</h2>
+      <div id="riskMap"></div>
+    </div>
+
+    <div class="card" id="temp-container">
+      <h2>Temperature Change (°C)</h2>
+      <div id="tempChart"></div>
+    </div>
+
+    <div class="card" id="crop-container">
+      <h2>Yield Trends</h2>
+      <div id="yieldChart"></div>
+    </div>
+  </main>
 
 </body>
 </html>
