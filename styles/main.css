@@ -276,31 +276,6 @@ body {
   font-weight: 600;
 }
 
-.grid {
-  display: grid;
-  grid-template-columns: 1.6fr 1fr;
-  gap: 14px;
-  padding: 16px 28px;
-}
-
-.card {
-  min-height: 220px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 14px;
-}
-
-.card-large {
-  grid-row: span 2;
-}
-
-.card h2 {
-  font-size: 12px;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: .08em;
-}
 
 #statBadges {
   display: flex;
@@ -332,3 +307,83 @@ body {
   background: rgba(255,255,255,0.2);
   align-self: stretch;
 }
+
+#main {
+  padding: 20px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.section-title {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 8px;
+  border-left: 3px solid var(--accent);
+  padding-left: 8px;
+  font-weight: 600;
+}
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  position: relative;
+  box-shadow: 0 1px 6px rgba(26,58,107,0.07);
+}
+
+#row1 { display: flex; gap: 16px; }
+#mapPanel  { flex: 1.6; overflow: hidden; }
+#scatterPanel { flex: 1; overflow: hidden;}
+
+.chart-area {
+  border: 1px solid #f0f0f0;
+  background: #fafbfc;
+  overflow: visible;
+}
+
+.axis {
+  font-size: 12px;
+}
+
+.axis text {
+  fill: #4a6080;
+  font-size: 11px;
+}
+
+.axis line,
+.axis path {
+  stroke: #dbe6f2;
+  stroke-width: 1;
+}
+
+.axis-label {
+  font-size: 11px;
+  fill: #5a7490;
+}
+
+.temp-line {
+  pointer-events: stroke;
+  cursor: pointer;
+}
+
+#tooltip {
+  position: fixed;
+  background: #222;
+  color: #fff;
+  padding: 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  z-index: 10000;
+  display: none;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+#tooltip.visible {
+  display: block;
+}
+
+
