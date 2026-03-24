@@ -11,6 +11,7 @@ const Data = {
 
 const State = {
   selectedCountries: new Set(), // set to prevent duplicates 
+  selectedCrops: new Set(),
 };
 
 async function loadData() {
@@ -84,7 +85,6 @@ function updateStatBadges() {
   if (Data.years && Data.years.length > 0) {
     const startYear = Data.years[0];
     const endYear = Data.years[Data.years.length - 1];
-
     document.getElementById("stat-years").textContent = `${startYear}–${endYear}`;
   }
 }
@@ -98,6 +98,7 @@ function initCountryList() {
       .attr("class", "multisel-item")
       .attr("data-value", d => d)
       .on("click", function(event, d) {
+		event.stopPropagation();
         if (event.target.tagName === 'INPUT') return;
         const cb = d3.select(this).select("input").node();
         cb.checked = !cb.checked;
@@ -107,25 +108,41 @@ function initCountryList() {
   countryItems.append("input")
     .attr("type", "checkbox")
     .on("change", (event, d) => {
+	  event.stopPropagation();
       updateCountrySelection(d, event.target.checked);
     });
 
   countryItems.append("span")
     .text(d => d);
-  d3.select("#countrySel-dropdown").style("display", "block");
+//   d3.select("#countrySel-dropdown").style("display", "block");
 }
-//sets up the click event listener to show or hide the country selection dropdown
+//sets up the click event listener to show or hide the country and crop selection dropdown
 function bindDropdownToggles() {
-  const trigger = document.getElementById("countrySel-trigger");
-  const dropdown = document.getElementById("countrySel-dropdown");
+  const configs = [
+    { triggerId: "countrySel-trigger", dropdownId: "countrySel-dropdown" },
+    { triggerId: "cropSel-trigger", dropdownId: "cropSel-dropdown" }
+  ];
 
-  if (trigger && dropdown) {
-    trigger.addEventListener("click", () => {
-      dropdown.classList.toggle("show"); 
-      const isHidden = dropdown.style.display === "none" || dropdown.style.display === "";
-      dropdown.style.display = isHidden ? "block" : "none";
-    });
-  }
+  configs.forEach(conf => {
+    const trigger = document.getElementById(conf.triggerId);
+    const dropdown = document.getElementById(conf.dropdownId);
+
+    if (trigger && dropdown) {
+      trigger.onclick = (e) => {
+        e.stopPropagation(); 
+        const isShowing = dropdown.style.display === "block";
+        
+        // Close other dropdowns first
+        document.querySelectorAll('.multisel-dropdown').forEach(d => d.style.display = 'none');
+        
+        dropdown.style.display = isShowing ? "none" : "block";
+      };
+    }
+  });
+  document.addEventListener("click", () => {
+    document.getElementById("countrySel-dropdown").style.display = "none";
+    document.getElementById("cropSel-dropdown").style.display = "none";
+  });
 }
 //handles the logic of updating the state when a country is selected or deselected, and also updates the badge and placeholder text accordingly
 function updateCountrySelection(country, isChecked) {
@@ -148,6 +165,53 @@ function updateCountrySelection(country, isChecked) {
 
   console.log("State updated:", Array.from(State.selectedCountries));
 }
+//generates list of crops in the dropdown and sets up the click event listener to select / deselect crops
+function initCropList() {
+  const cropList = d3.select("#cropSel-list");
+
+  const cropItems = cropList.selectAll(".multisel-item")
+    .data(Data.crops)
+    .join("div")
+      .attr("class", "multisel-item")
+      .attr("data-value", d => d)
+      .on("click", function(event, d) {
+		event.stopPropagation();
+        if (event.target.tagName === 'INPUT') return;
+        
+        const cb = d3.select(this).select("input").node();
+        cb.checked = !cb.checked;
+        updateCropSelection(d, cb.checked);
+      });
+
+
+  cropItems.append("input")
+    .attr("type", "checkbox")
+    .on("change", (event, d) => {
+		event.stopPropagation();
+      updateCropSelection(d, event.target.checked);
+    });
+  cropItems.append("span")
+    .text(d => d);
+}
+//handles the logic of updating the state when a crop is selected or deselected and updating the placeholder
+function updateCropSelection(crop, isChecked) {
+  if (isChecked) {
+    State.selectedCrops.add(crop);
+  } else {
+    State.selectedCrops.delete(crop);
+  }
+
+  const count = State.selectedCrops.size;
+  const placeholder = document.querySelector("#cropSel-pills .multisel-placeholder");
+  
+  if (placeholder) {
+    placeholder.textContent = count > 0 ? `${count} crops selected` : "All crops";
+  }
+
+  if (typeof updateAll === "function") updateAll();
+  
+  console.log("Crops Selected:", Array.from(State.selectedCrops));
+}
 
 async function main() {
   try {
@@ -155,6 +219,7 @@ async function main() {
 	updateStatBadges();
 	initCountryList();
 	bindDropdownToggles();
+	initCropList();
     const testCountry = Data.countries[0];
     const testYear = 2010;
     const yearData = Data.byCountryYear.get(testCountry)?.get(testYear);
