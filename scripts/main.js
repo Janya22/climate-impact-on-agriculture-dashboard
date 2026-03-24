@@ -72,10 +72,22 @@ async function loadData() {
   return raw;
 }
 
+function updateStatBadges() {
+  document.getElementById("stat-countries").textContent = Data.countries.length;
+  document.getElementById("stat-crops").textContent = Data.crops.length;
+  if (Data.years && Data.years.length > 0) {
+    const startYear = Data.years[0];
+    const endYear = Data.years[Data.years.length - 1];
+
+    document.getElementById("stat-years").textContent = `${startYear}–${endYear}`;
+  }
+}
+
 
 async function main() {
   try {
     await loadData();
+	updateStatBadges();
     const testCountry = Data.countries[0];
     const testYear = 2010;
     const yearData = Data.byCountryYear.get(testCountry)?.get(testYear);
