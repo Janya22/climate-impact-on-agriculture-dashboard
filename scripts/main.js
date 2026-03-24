@@ -1,11 +1,15 @@
-/* =====================================================================
-   DATA LOADING AND PREPROCESSING
-   ===================================================================== */
-/**
- * Load CSV and build lookup structures.
- */
+console.log("!!! SCRIPT IS ALIVE !!!");
+const Data = {
+  raw: [],
+  countries: [],
+  crops: [],
+  years: [],
+  iso3Map: new Map(),
+  byCountryYearCrop: null,
+  byCountryYear: null
+};
 async function loadData() {
-  const raw = await d3.csv("Merged_FAOSTAT_Cleaned.csv", d => ({
+  const raw = await d3.csv("data/Merged_FAOSTAT_Cleaned.csv", d => ({
     country:    d.Country,
     iso3:       d.ISO3,
     year:       +d.Year,
@@ -61,5 +65,26 @@ async function loadData() {
     Data.byCountryYear.set(country, byYear);
   });
 
+  console.log("Total Rows Loaded:", Data.raw.length);
+  console.log("Countries Found:", Data.countries.length);
+  console.log("Sample Country (United Kingdom):", Data.byCountryYear.get("United Kingdom"));
+  
   return raw;
 }
+
+
+async function main() {
+  try {
+    await loadData();
+    const testCountry = Data.countries[0];
+    const testYear = 2010;
+    const yearData = Data.byCountryYear.get(testCountry)?.get(testYear);
+
+    console.log(`Test Result for ${testCountry} in ${testYear}:`, yearData);
+  } catch (error) {
+    console.error("Data loading failed: Check if the CSV filename is correct:", error);
+  }
+}
+
+
+main();
