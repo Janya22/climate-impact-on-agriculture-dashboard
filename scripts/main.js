@@ -8,6 +8,11 @@ const Data = {
   byCountryYearCrop: null,
   byCountryYear: null
 };
+
+const State = {
+  selectedCountries: new Set(), // set to prevent duplicates 
+};
+
 async function loadData() {
   const raw = await d3.csv("data/Merged_FAOSTAT_Cleaned.csv", d => ({
     country:    d.Country,
@@ -72,6 +77,7 @@ async function loadData() {
   return raw;
 }
 
+//gets the data for number of countires, crops, time span to be mentioned in the badges at header
 function updateStatBadges() {
   document.getElementById("stat-countries").textContent = Data.countries.length;
   document.getElementById("stat-crops").textContent = Data.crops.length;
@@ -82,12 +88,73 @@ function updateStatBadges() {
     document.getElementById("stat-years").textContent = `${startYear}–${endYear}`;
   }
 }
+//generates list of countries in the dropdown 
+function initCountryList() {
+  const countryList = d3.select("#countrySel-list");
 
+  const countryItems = countryList.selectAll(".multisel-item")
+    .data(Data.countries)
+    .join("div")
+      .attr("class", "multisel-item")
+      .attr("data-value", d => d)
+      .on("click", function(event, d) {
+        if (event.target.tagName === 'INPUT') return;
+        const cb = d3.select(this).select("input").node();
+        cb.checked = !cb.checked;
+        updateCountrySelection(d, cb.checked);
+      });
+
+  countryItems.append("input")
+    .attr("type", "checkbox")
+    .on("change", (event, d) => {
+      updateCountrySelection(d, event.target.checked);
+    });
+
+  countryItems.append("span")
+    .text(d => d);
+  d3.select("#countrySel-dropdown").style("display", "block");
+}
+//sets up the click event listener to show or hide the country selection dropdown
+function bindDropdownToggles() {
+  const trigger = document.getElementById("countrySel-trigger");
+  const dropdown = document.getElementById("countrySel-dropdown");
+
+  if (trigger && dropdown) {
+    trigger.addEventListener("click", () => {
+      dropdown.classList.toggle("show"); 
+      const isHidden = dropdown.style.display === "none" || dropdown.style.display === "";
+      dropdown.style.display = isHidden ? "block" : "none";
+    });
+  }
+}
+//handles the logic of updating the state when a country is selected or deselected, and also updates the badge and placeholder text accordingly
+function updateCountrySelection(country, isChecked) {
+  if (isChecked) State.selectedCountries.add(country);
+  else State.selectedCountries.delete(country);
+
+  const badge = document.getElementById("stat-selected");
+  const count = State.selectedCountries.size;
+  
+  if (badge) {
+    badge.textContent = count === 0 ? "All Countries" : 
+                        count === 1 ? Array.from(State.selectedCountries)[0] : 
+                        `${count} Countries`;
+  }
+
+  const placeholder = document.querySelector("#countrySel-pills .multisel-placeholder");
+  if (placeholder) {
+    placeholder.textContent = count > 0 ? `${count} selected` : "All countries";
+  }
+
+  console.log("State updated:", Array.from(State.selectedCountries));
+}
 
 async function main() {
   try {
     await loadData();
 	updateStatBadges();
+	initCountryList();
+	bindDropdownToggles();
     const testCountry = Data.countries[0];
     const testYear = 2010;
     const yearData = Data.byCountryYear.get(testCountry)?.get(testYear);
