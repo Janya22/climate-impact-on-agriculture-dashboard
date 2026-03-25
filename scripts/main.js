@@ -12,6 +12,8 @@ const Data = {
 const State = {
   selectedCountries: new Set(), // set to prevent duplicates 
   selectedCrops: new Set(),
+  year: 2010,
+  window: 5,
 };
 
 async function loadData() {
@@ -88,6 +90,21 @@ function updateStatBadges() {
     document.getElementById("stat-years").textContent = `${startYear}–${endYear}`;
   }
 }
+
+function updateSelectionInfo() {
+  const countryCount = State.selectedCountries.size;
+  const cropCount = State.selectedCrops.size;
+
+  const cLabel = countryCount === 0 ? "all countries"
+    : countryCount === 1 ? [...State.selectedCountries][0]
+    : `${countryCount} countries`;
+
+  const pLabel = cropCount === 0 ? "all crops"
+    : cropCount === 1 ? [...State.selectedCrops][0]
+    : `${cropCount} crops`;
+
+  d3.select("#selInfo").text(`Showing ${cLabel} and ${pLabel}`);
+}
 //generates list of countries in the dropdown 
 function initCountryList() {
   const countryList = d3.select("#countrySel-list");
@@ -161,6 +178,10 @@ function updateCountrySelection(country, isChecked) {
     placeholder.textContent = count > 0 ? `${count} selected` : "All countries";
   }
 
+  updateSelectionInfo();
+
+  if (typeof updateAll === "function") updateAll();
+
   console.log("State updated:", Array.from(State.selectedCountries));
 }
 //generates list of crops in the dropdown and sets up the click event listener to select / deselect crops
@@ -205,6 +226,8 @@ function updateCropSelection(crop, isChecked) {
   if (placeholder) {
     placeholder.textContent = count > 0 ? `${count} crops selected` : "All crops";
   }
+
+  updateSelectionInfo();
 
   if (typeof updateAll === "function") updateAll();
   
@@ -257,11 +280,54 @@ function setSelectedCountry(countryName) {
   } else {
     State.selectedCountries = new Set([countryName]);
   }
+
+  updateSelectionInfo();
 }
 
 //updates charts when state is changed
 function updateAll() {
   TempChart.update();
+}
+
+function bindFilterControls() {
+  const yearSlider = document.getElementById("yearSlider");
+  const yearLabel = document.getElementById("yearLabel");
+  const windowSel = document.getElementById("windowSel");
+  const resetBtn = document.getElementById("resetBtn");
+
+  if (yearSlider) {
+    State.year = +yearSlider.value;
+    yearSlider.addEventListener("input", function() {
+      State.year = +this.value;
+      if (yearLabel) yearLabel.textContent = this.value;
+      updateAll();
+    });
+  }
+
+  if (windowSel) {
+    State.window = +windowSel.value;
+    windowSel.addEventListener("change", function() {
+      State.window = +this.value;
+      updateAll();
+    });
+  }
+
+  if (resetBtn) {
+    resetBtn.addEventListener("click", () => {
+      State.selectedCountries.clear();
+      State.selectedCrops.clear();
+      document.querySelectorAll("#countrySel-list input[type='checkbox']").forEach(cb => cb.checked = false);
+      document.querySelectorAll("#cropSel-list input[type='checkbox']").forEach(cb => cb.checked = false);
+      const badge = document.getElementById("stat-selected");
+      if (badge) badge.textContent = "All Countries";
+      const countryPh = document.querySelector("#countrySel-pills .multisel-placeholder");
+      if (countryPh) countryPh.textContent = "All countries";
+      const cropPh = document.querySelector("#cropSel-pills .multisel-placeholder");
+      if (cropPh) cropPh.textContent = "All crops";
+      updateSelectionInfo();
+      updateAll();
+    });
+  }
 }
 
 const TempChart = (() => {
@@ -302,6 +368,18 @@ const TempChart = (() => {
         if (s.avgTemp != null) vals.push({ year: +y, temp: s.avgTemp });
       });
       vals.sort((a, b) => a.year - b.year);
+
+      if (State.window > 1 && vals.length > 1) {
+        const half = Math.floor(State.window / 2);
+        const smoothed = vals.map((point, index) => {
+          const start = Math.max(0, index - half);
+          const end = Math.min(vals.length - 1, index + half);
+          const segment = vals.slice(start, end + 1);
+          return { year: point.year, temp: d3.mean(segment, d => d.temp) };
+        });
+        return { country, vals: smoothed };
+      }
+
       return { country, vals };
     }).filter(s => s.vals.length > 1);
 
@@ -355,8 +433,10 @@ async function main() {
 	updateStatBadges();
 	initCountryList();
 	bindDropdownToggles();
+  bindFilterControls();
 	initCropList();
 	TempChart.init();
+  updateSelectionInfo();
 	TempChart.update();
     const testCountry = Data.countries[0];
     const testYear = 2010;
