@@ -390,30 +390,30 @@ body {
 
 /* CHART 2 LAIBA ADDING*/
 .legend-wrap {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 8px;
-}
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
 
-.legend-pill {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: 3px 8px;
-  border-radius: 20px;
-  border: 1px solid transparent;
-  transition: border-color 0.2s, color 0.2s;
-}
+    .legend-pill {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 3px 8px;
+      border-radius: 20px;
+      border: 1px solid transparent;
+      transition: border-color 0.2s, color 0.2s;
+    }
 
-.legend-pill:hover { border-color: var(--border); color: var(--text); }
-.legend-pill.active { border-color: var(--accent); color: var(--text); background: #eef3fa; }
+    .legend-pill:hover { border-color: var(--border); color: var(--text); }
+    .legend-pill.active { border-color: var(--accent); color: var(--text); background: #eef3fa; }
 
-.legend-swatch {
-  width: 10px; height: 10px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
+    .legend-swatch {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
