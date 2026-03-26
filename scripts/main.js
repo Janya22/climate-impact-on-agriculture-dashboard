@@ -426,6 +426,129 @@ const TempChart = (() => {
   return { init, update };
 })();
 
+// Chart 2 - Crop Trend Lines 
+const CropTrendChart = (() => {
+  let svg, width, height, margin;
+
+  function init() {
+    const container = document.getElementById("scatterPanel");
+    width = container.clientWidth - 32;
+    height = 300;
+    margin = { top: 20, right: 20, bottom: 40, left: 60 };
+
+    svg = d3.select("#trendSvg").attr("width", width).attr("height", height);
+    svg.append("g").attr("class", "axis x-axis-trend").attr("transform", `translate(0,${height - margin.bottom})`);
+    svg.append("g").attr("class", "axis y-axis-trend").attr("transform", `translate(${margin.left},0)`);
+    svg.append("g").attr("class", "trend-lines");
+    svg.append("text")
+      .attr("class", "y-label-trend")
+      .attr("transform", "rotate(-90)")
+      .attr("x", -(height / 2))
+      .attr("y", 13)
+      .attr("text-anchor", "middle")
+      .attr("font-size", "10px")
+      .attr("fill", "#5a7490");
+
+    drawLegend();
+  }
+  
+  // Creates the interactive legend pills that toggle crop visibility.
+  function drawLegend() {
+    const wrap = document.getElementById("trendLegend");
+    wrap.innerHTML = "";
+    Data.crops.forEach(crop => {
+      const pill = document.createElement("div");
+      pill.className = "legend-pill active";
+      pill.innerHTML = `<span class="legend-swatch" style="background:${CROP_COLOURS[crop] || "#8aabcc"}"></span>${crop}`;
+      pill.addEventListener("click", () => {
+        if (State.trendCrops.has(crop)) {
+          State.trendCrops.delete(crop);
+          pill.classList.remove("active");
+        } else {
+          State.trendCrops.add(crop);
+          pill.classList.add("active");
+        }
+        
+        // If everything is unchecked, default back to showing everything
+        if (State.trendCrops.size === 0 || State.trendCrops.size === Data.crops.length) {
+          State.trendCrops.clear();
+          wrap.querySelectorAll(".legend-pill").forEach(el => el.classList.add("active"));
+        }
+
+        update();
+      });
+      wrap.appendChild(pill);
+    });
+  }
+
+  function update() {
+    const selectedCrops = getSelectedCropNames();
+    let activeCrops = State.trendCrops.size
+      ? new Set(selectedCrops.filter(crop => State.trendCrops.has(crop)))
+      : new Set(selectedCrops);
+    if (!activeCrops.size) activeCrops = new Set(selectedCrops);
+    const selectedCountries = State.selectedCountries;
+
+    // Setup labels based on the selection (Yield, Production, Area Harvested)
+    const METRIC_UNIT = { "Yield": "kg/ha", "Production": "t", "Area harvested": "ha" };
+    const METRIC_LABEL = { "Yield": "Yield (kg/ha)", "Production": "Production (t)", "Area harvested": "Area Harvested (ha)" };
+    const metric = State.metric;
+    const unit = METRIC_UNIT[metric] || metric;
+
+    const titleEl = document.getElementById("trendTitle");
+    if (titleEl) titleEl.textContent = `Crop ${METRIC_LABEL[metric] || metric} Trend Over Time`;
+    svg.select(".y-label-trend").text(unit);
+
+    // Filter the raw data to see only what we need for the current view
+    const rows = Data.raw.filter(d =>
+      d.element === metric &&
+      activeCrops.has(d.crop) &&
+      (selectedCountries.size === 0 || selectedCountries.has(d.country))
+    );
+
+    // Calculate Mean value for each crop-year
+    const grouped = d3.rollups(
+      rows,
+      v => d3.mean(v, d => d.agriValue),
+      d => d.crop,
+      d => d.year
+    ).map(([crop, yearVals]) => ({
+      crop,
+      vals: yearVals.map(([year, val]) => ({ year: +year, val })).sort((a, b) => a.year - b.year)
+    })).filter(s => s.vals.length > 1);
+
+    if (!grouped.length) return;
+
+    const allPoints = grouped.flatMap(s => s.vals);
+    const x = d3.scaleLinear().domain(d3.extent(allPoints, d => d.year)).range([margin.left, width - margin.right]);
+    const y = d3.scaleLinear().domain([0, d3.max(allPoints, d => d.val) * 1.05]).nice().range([height - margin.bottom, margin.top]);
+
+    svg.select(".x-axis-trend").call(d3.axisBottom(x).ticks(8).tickFormat(d3.format("d")));
+    svg.select(".y-axis-trend").call(d3.axisLeft(y).ticks(6).tickFormat(d3.format(",.0f")));
+
+    const line = d3.line().x(d => x(d.year)).y(d => y(d.val)).curve(d3.curveMonotoneX);
+
+    svg.select(".trend-lines").selectAll(".crop-line").data(grouped, d => d.crop).join(
+      enter => enter.append("path")
+        .attr("class", "crop-line")
+        .attr("fill", "none")
+        .attr("stroke", d => CROP_COLOURS[d.crop] || "#8aabcc")
+        .attr("stroke-width", 2)
+        .attr("d", d => line(d.vals))
+        .on("mousemove", (evt, d) => {
+          tt.show(evt, `<div class=\"tt-title\">${d.crop}</div>`);
+        })
+        .on("mouseleave", () => tt.hide()),
+      update => update
+        .attr("stroke", d => CROP_COLOURS[d.crop] || "#8aabcc")
+        .attr("d", d => line(d.vals)),
+      exit => exit.remove()
+    );
+  }
+
+  return { init, update };
+})();
+
 //loads data and initializes all controls and initial chart render
 async function main() {
   try {
