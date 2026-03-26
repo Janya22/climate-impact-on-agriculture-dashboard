@@ -337,6 +337,8 @@ body {
 #row1 { display: flex; gap: 16px; }
 #mapPanel  { flex: 1.6; overflow: hidden; }
 #scatterPanel { flex: 1; overflow: hidden;}
+/* Laiba ADD */
+#scatterPanel { flex: 1; overflow: hidden; }
 
 .chart-area {
   border: 1px solid #f0f0f0;
@@ -386,4 +388,32 @@ body {
   display: block;
 }
 
+/* CHART 2 LAIBA ADDING*/
+.legend-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
 
+.legend-pill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 3px 8px;
+  border-radius: 20px;
+  border: 1px solid transparent;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.legend-pill:hover { border-color: var(--border); color: var(--text); }
+.legend-pill.active { border-color: var(--accent); color: var(--text); background: #eef3fa; }
+
+.legend-swatch {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
