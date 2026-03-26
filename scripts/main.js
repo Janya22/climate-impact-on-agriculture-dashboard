@@ -12,8 +12,22 @@ const Data = {
 const State = {
   selectedCountries: new Set(), // set to prevent duplicates 
   selectedCrops: new Set(),
+  selectedCountry: null,
+  selectedCrop: "ALL",
+  metric: "Yield",
   year: 2010,
   window: 5,
+  trendCrops: new Set()
+};
+
+const CROP_COLOURS = {
+  "Barley":        "#e8a838",
+  "Cassava, fresh":"#38e8a8",
+  "Maize (corn)":  "#e84888",
+  "Potatoes":      "#a838e8",
+  "Rice":          "#38b2e8",
+  "Soya beans":    "#88e838",
+  "Wheat":         "#e86038"
 };
 
 async function loadData() {
@@ -284,9 +298,23 @@ function setSelectedCountry(countryName) {
   updateSelectionInfo();
 }
 
+function setSelectedCrop(cropName) {
+  if (!cropName || cropName === "ALL") {
+    State.selectedCrops.clear();
+  } else {
+    State.selectedCrops = new Set([cropName]);
+  }
+  syncSelectionState();
+}
+
+function getSelectedCropNames() {
+  return State.selectedCrops.size ? [...State.selectedCrops] : [...Data.crops];
+}
+
 //updates charts when state is changed
 function updateAll() {
   TempChart.update();
+  CropTrendChart.update();
 }
 
 function bindFilterControls() {
@@ -294,6 +322,14 @@ function bindFilterControls() {
   const yearLabel = document.getElementById("yearLabel");
   const windowSel = document.getElementById("windowSel");
   const resetBtn = document.getElementById("resetBtn");
+
+  const metricSel = document.getElementById("metricSel");
+  if (metricSel) {
+    metricSel.addEventListener("change", function() {
+      State.metric = this.value;
+      updateAll();
+    });
+  }
 
   if (yearSlider) {
     State.year = +yearSlider.value;
@@ -425,6 +461,7 @@ const TempChart = (() => {
 
   return { init, update };
 })();
+// Helper functions for Chart 2 
 
 // Chart 2 - Crop Trend Lines 
 const CropTrendChart = (() => {
@@ -559,8 +596,10 @@ async function main() {
   bindFilterControls();
 	initCropList();
 	TempChart.init();
+  CropTrendChart.init();
   updateSelectionInfo();
 	TempChart.update();
+  CropTrendChart.update();
     const testCountry = Data.countries[0];
     const testYear = 2010;
     const yearData = Data.byCountryYear.get(testCountry)?.get(testYear);
