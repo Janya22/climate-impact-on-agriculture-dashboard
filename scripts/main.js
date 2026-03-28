@@ -610,5 +610,104 @@ async function main() {
   }
 }
 
+function pearsonCorr(a, b) {
+  const n = Math.min(a.length, b.length);
+  if (n < 2) return null;
+  const ma = d3.mean(a), mb = d3.mean(b);
+  let num = 0, da = 0, db = 0;
+  for (let i = 0; i < n; i++) {
+    const xa = a[i] - ma;
+    const xb = b[i] - mb;
+    num += xa * xb;
+    da += xa * xa;
+    db += xb * xb;
+  }
+  if (!da || !db) return null;
+  return num / Math.sqrt(da * db);
+}
+
+function stdDev(values) {
+  if (!values.length) return null;
+  const mean = d3.mean(values);
+  return Math.sqrt(d3.mean(values.map(v => (v - mean) * (v - mean))));
+}
+
+function linearSlope(x, y) {
+  const n = Math.min(x.length, y.length);
+  if (n < 2) return null;
+  const mx = d3.mean(x), my = d3.mean(y);
+  let num = 0, den = 0;
+  for (let i = 0; i < n; i++) {
+    num += (x[i] - mx) * (y[i] - my);
+    den += (x[i] - mx) * (x[i] - mx);
+  }
+  return den ? num / den : null;
+}
+
+function normalizeRows(rows, inputKey, outputKey) {
+  const vals = rows.map(r => r[inputKey]).filter(v => v != null && isFinite(v));
+  const min = d3.min(vals);
+  const max = d3.max(vals);
+  const span = (max - min) || 1;
+  rows.forEach(r => {
+    r[outputKey] = r[inputKey] == null ? 0 : (r[inputKey] - min) / span;
+  });
+}
+
+function computeRiskRows() {
+  const results = [];
+
+  Data.countries.forEach(country => {
+    const byYear = Data.byCountryYearCrop.get(country);
+    if (!byYear) return;
+
+    Data.crops.forEach(crop => {
+      const years = [];
+      const yieldVals = [];
+      const tempVals = [];
+
+      byYear.forEach((cropMap, year) => {
+        const recs = cropMap.get(crop);
+        if (!recs) return;
+        const ys = recs.filter(r => r.element === "Yield").map(r => r.agriValue);
+        const ts = recs.map(r => r.tempChange).filter(v => v != null);
+        if (!ys.length || !ts.length) return;
+        years.push(+year);
+        yieldVals.push(d3.mean(ys));
+        tempVals.push(d3.mean(ts));
+      });
+
+      if (new Set(years).size < 10) return;
+
+      const corr = pearsonCorr(yieldVals, tempVals);
+      const negCorr = corr != null && corr < 0 ? Math.abs(corr) : 0;
+      const tempSlope = linearSlope(years, tempVals);
+      const variability = d3.mean(yieldVals) ? (stdDev(yieldVals) / d3.mean(yieldVals)) : null;
+
+      results.push({
+        country,
+        crop,
+        correlation: corr,
+        negCorr,
+        tempSlope,
+        yieldVariability: variability,
+      });
+    });
+  });
+
+  normalizeRows(results, "negCorr", "normCorr");
+  normalizeRows(results, "tempSlope", "normTempSlope");
+  normalizeRows(results, "yieldVariability", "normVariability");
+
+  results.forEach(r => {
+    r.riskScore = r.normCorr * r.normTempSlope * r.normVariability;
+    r.riskCategory = r.riskScore < 0.25 ? "Low Risk"
+      : r.riskScore < 0.5 ? "Moderate Risk"
+      : r.riskScore < 0.75 ? "High Risk"
+      : "Severe Risk";
+  });
+
+  Data.riskRows = results;
+}
 
 main();
