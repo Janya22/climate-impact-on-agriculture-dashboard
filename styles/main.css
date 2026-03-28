@@ -337,8 +337,8 @@ body {
 #row1 { display: flex; gap: 16px; }
 #mapPanel  { flex: 1.6; overflow: hidden; }
 #scatterPanel { flex: 1; overflow: hidden;}
-/* Laiba ADD */
-#scatterPanel { flex: 1; overflow: hidden; }
+#row2 { display: flex; gap: 16px; }
+#linePanel { flex: 1.35; overflow: hidden; }
 
 .chart-area {
   border: 1px solid #f0f0f0;
@@ -388,7 +388,17 @@ body {
   display: block;
 }
 
-/* CHART 2 LAIBA ADDING*/
+#tooltip .tt-title {
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 3px;
+    }
+
+#tooltip .tt-row { display: flex; justify-content: space-between; gap: 12px; }
+#tooltip .tt-key { color: var(--text-muted); }
+#tooltip .tt-val { font-weight: 600; color: var(--text); }
+
 .legend-wrap {
       display: flex;
       flex-wrap: wrap;
@@ -417,3 +427,5 @@ body {
       border-radius: 50%;
       flex-shrink: 0;
     }
+
+  
