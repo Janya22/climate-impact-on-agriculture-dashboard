@@ -779,7 +779,7 @@ const RiskMapChart = (() => {
     height = 280;
 
     svg = d3.select("#riskMapSvg").attr("width", width).attr("height", height);
-    projection = d3.geoNaturalEarth1().scale(width / 6.4).translate([width / 2, height / 2 + 8]);
+    projection = d3.geoNaturalEarth1().scale(width / 7.5).translate([width / 2, height / 2 + 8]);
     path = d3.geoPath(projection);
     features = topojson.feature(world, world.objects.countries).features;
     console.log(features[0]); 
@@ -794,6 +794,17 @@ const RiskMapChart = (() => {
       .on("mousemove", onMove)
       .on("mouseleave", () => tt.hide())
       .on("click", onClick);
+
+  
+  const zoom = d3.zoom()
+    .scaleExtent([1, 8])
+    .on("zoom", (event) => {
+      g.attr("transform", event.transform);
+    });
+
+  svg.call(zoom)
+     .on("wheel.zoom", null)   
+     .call(zoom);
   }
 
   function riskByCountry() {
