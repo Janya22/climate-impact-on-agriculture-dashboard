@@ -1,21 +1,26 @@
 :root {
-  --bg: #f5f8fc;
-  --surface: #ffffff;
-  --border: #dbe6f2;
-  --accent: #1a3a6b;
-  --text: #1a2a3a;
-  --muted: #5a7490;
-  --danger: #c02020;
+  --bg:          #f0f4f8;
+  --surface:     #ffffff;
+  --surface2:    #f5f7fa;
+  --border:      #dce6f0;
+  --accent:      #1a3a6b;
+  --accent2:     #0e7fc0;
+  --danger:      #c02020;
+  --safe:        #2a7a3b;
+  --text:        #1a2a3a;
+  --text-muted:  #5a7490;
+  --font:        'Segoe UI', system-ui, sans-serif;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: "Segoe UI", system-ui, sans-serif;
-  min-height: 100vh;
-}
+html, body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 13px;
+      min-height: 100vh;
+    }
 
 .hero {
   background: linear-gradient(135deg, #1a3a6b 0%, #2255aa 100%);
@@ -340,11 +345,7 @@ body {
 #row2 { display: flex; gap: 16px; }
 #linePanel { flex: 1.35; overflow: hidden; }
 
-.chart-area {
-  border: 1px solid #f0f0f0;
-  background: #fafbfc;
-  overflow: visible;
-}
+.chart-area { width: 100%; overflow: visible; }
 
 .axis {
   font-size: 12px;
@@ -372,21 +373,23 @@ body {
 }
 
 #tooltip {
-  position: fixed;
-  background: #222;
-  color: #fff;
-  padding: 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  z-index: 10000;
-  display: none;
-  pointer-events: none;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-}
+      position: fixed;
+      pointer-events: none;
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 9px 13px;
+      font-size: 12px;
+      color: var(--text);
+      max-width: 220px;
+      line-height: 1.6;
+      z-index: 9999;
+      opacity: 0;
+      transition: opacity 0.15s;
+      box-shadow: 0 4px 16px rgba(26,58,107,0.12);
+    }
 
-#tooltip.visible {
-  display: block;
-}
+#tooltip.visible { opacity: 1; }
 
 #tooltip .tt-title {
       font-size: 12.5px;
@@ -439,3 +442,6 @@ body {
   .country-path:hover { stroke: var(--accent); stroke-width: 1.4; }
   .country-path.selected { stroke: var(--danger); stroke-width: 2; }
   .country-path.dimmed { opacity: 0.25; }
+
+
+  .grad-legend rect { stroke: none; }
