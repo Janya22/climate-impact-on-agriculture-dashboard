@@ -315,6 +315,9 @@ function getSelectedCropNames() {
 function updateAll() {
   TempChart.update();
   CropTrendChart.update();
+  RiskMapChart.update();
+  document.getElementById("yearLabel").textContent = State.year;
+  document.getElementById("yearSlider").value = State.year;
 }
 
 function bindFilterControls() {
@@ -590,6 +593,9 @@ const CropTrendChart = (() => {
 async function main() {
   try {
     await loadData();
+    computeRiskRows();
+
+    const world = await d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json");
 	updateStatBadges();
 	initCountryList();
 	bindDropdownToggles();
@@ -597,13 +603,15 @@ async function main() {
 	initCropList();
 	TempChart.init();
   CropTrendChart.init();
+  RiskMapChart.init(world);
   updateSelectionInfo();
 	TempChart.update();
   CropTrendChart.update();
     const testCountry = Data.countries[0];
     const testYear = 2010;
     const yearData = Data.byCountryYear.get(testCountry)?.get(testYear);
-
+    updateAll();
+    bindControls();
     console.log(`Test Result for ${testCountry} in ${testYear}:`, yearData);
   } catch (error) {
     console.error("Data loading failed: Check if the CSV filename is correct:", error);
@@ -761,6 +769,96 @@ function countryFromTopoId(numId) {
   }
   return null;
 }
+
+const RiskMapChart = (() => {
+  let svg, g, path, projection, width, height, features, color;
+
+  function init(world) {
+    const container = document.getElementById("linePanel");
+    width = container.clientWidth - 32;
+    height = 280;
+
+    svg = d3.select("#riskMapSvg").attr("width", width).attr("height", height);
+    projection = d3.geoNaturalEarth1().scale(width / 6.4).translate([width / 2, height / 2 + 8]);
+    path = d3.geoPath(projection);
+    features = topojson.feature(world, world.objects.countries).features;
+    console.log(features[0]); 
+    color = d3.scaleSequential().domain([0, 1]).interpolator(d3.interpolateReds);
+
+    g = svg.append("g");
+    g.selectAll("path")
+      .data(features)
+      .join("path")
+      .attr("class", "country-path")
+      .attr("d", path)
+      .on("mousemove", onMove)
+      .on("mouseleave", () => tt.hide())
+      .on("click", onClick);
+  }
+
+  function riskByCountry() {
+    const rows = State.selectedCrops.size === 0
+      ? Data.riskRows
+      : Data.riskRows.filter(r => State.selectedCrops.has(r.crop));
+
+    const best = new Map();
+    rows.forEach(r => {
+      const prev = best.get(r.country);
+      if (!prev || r.riskScore > prev.riskScore) best.set(r.country, r);
+    });
+    return best;
+  }
+
+  function update() {
+    const byCountry = riskByCountry();
+
+    g.selectAll(".country-path")
+      .attr("fill", d => {
+        const country = countryFromTopoId(d.id);
+        const row = country ? byCountry.get(country) : null;
+        return row ? color(row.riskScore) : "#c7d6e5";
+      })
+      .attr("class", d => {
+        const country = countryFromTopoId(d.id);
+        if (!State.selectedCountries.size) return "country-path";
+        return State.selectedCountries.has(country) ? "country-path selected" : "country-path dimmed";
+      });
+  }
+
+  function onMove(evt, d) {
+    const country = countryFromTopoId(d.id);
+    if (!country) return tt.hide();
+
+    const rows = State.selectedCrops.size === 0
+      ? Data.riskRows.filter(r => r.country === country)
+      : Data.riskRows.filter(r => r.country === country && State.selectedCrops.has(r.crop));
+    if (!rows.length) return tt.hide();
+
+    const r = rows.sort((a, b) => b.riskScore - a.riskScore)[0];
+    tt.show(evt, `
+      <div class="tt-title">${country}</div>
+      <div class="tt-row"><span class="tt-key">Risk Score</span><span class="tt-val">${r.riskScore.toFixed(3)}</span></div>
+      <div class="tt-row"><span class="tt-key">Category</span><span class="tt-val">${r.riskCategory}</span></div>
+      <div class="tt-row"><span class="tt-key">Crop</span><span class="tt-val">${r.crop}</span></div>
+      <div class="tt-row"><span class="tt-key">Correlation</span><span class="tt-val">${r.correlation == null ? "—" : r.correlation.toFixed(3)}</span></div>
+      <div class="tt-row"><span class="tt-key">TempSlope</span><span class="tt-val">${r.tempSlope == null ? "—" : r.tempSlope.toFixed(5)}</span></div>
+      <div class="tt-row"><span class="tt-key">Yield Variability</span><span class="tt-val">${r.yieldVariability == null ? "—" : r.yieldVariability.toFixed(3)}</span></div>
+    `);
+  }
+
+  function onClick(evt, d) {
+    const country = countryFromTopoId(d.id);
+    if (!country) return;
+    if (State.selectedCountries.size === 1 && State.selectedCountries.has(country)) {
+      setSelectedCountry("ALL");
+    } else {
+      setSelectedCountry(country);
+    }
+    updateAll();
+  }
+
+  return { init, update };
+})();
 
 
 main();
