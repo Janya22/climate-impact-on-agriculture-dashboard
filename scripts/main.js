@@ -1072,5 +1072,11 @@ const RiskMapChart = (() => {
         .text(d => meta.fmt(d.value)),
       exit => exit.remove()
     );
+    
+    // ---- Highlight selected country ----
+    svg.selectAll(".bar-rect")
+      .attr("stroke", d => State.selectedCountries.size && State.selectedCountries.has(d.country) ? "#c02020" : "none")
+      .attr("stroke-width", 2);
+  }
 
 main();
