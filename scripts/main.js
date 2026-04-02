@@ -1020,4 +1020,39 @@ const RiskMapChart = (() => {
     document.getElementById("barPanelTitle").textContent =
       `Country Rankings — ${meta.label} · ${cropStr} · ${State.year}`;
 
+      // ---- Bars ----
+    const barSel = svg.selectAll(".bar-rect").data(data, d => d.country);
+    barSel.join(
+      enter => enter.append("rect")
+        .attr("class","bar-rect")
+        .attr("x", margin.left + xScale(xMin))
+        .attr("y", d => yScale(d.country))
+        .attr("width", 0)
+        .attr("height", yScale.bandwidth())
+        .attr("fill", d => cScale(d.value))
+        .attr("rx", 3)
+        .on("click", (evt, d) => {
+          setSelectedCountry(d.country);
+          updateAll();
+        })
+        .on("mousemove", (evt, d) => {
+          const tempStr = d.temp != null ? d.temp.toFixed(3)+"°C" : "—";
+          tt.show(evt, `
+            <div class="tt-title">${d.country}</div>
+            <div class="tt-row"><span class="tt-key">${meta.label}</span><span class="tt-val">${meta.fmt(d.value)}</span></div>
+            <div class="tt-row"><span class="tt-key">Temp Anomaly</span><span class="tt-val">${tempStr}</span></div>
+          `);
+        })
+        .on("mouseleave", () => tt.hide())
+        .transition().duration(500)
+        .attr("width", d => Math.max(0, xScale(d.value) - xScale(xMin))),
+      upd => upd.transition().duration(500)
+        .attr("y", d => yScale(d.country))
+        .attr("height", yScale.bandwidth())
+        .attr("x", margin.left + xScale(xMin))
+        .attr("width", d => Math.max(0, xScale(d.value) - xScale(xMin)))
+        .attr("fill", d => cScale(d.value)),
+      exit => exit.transition().duration(300).attr("width",0).remove()
+    );
+
 main();
