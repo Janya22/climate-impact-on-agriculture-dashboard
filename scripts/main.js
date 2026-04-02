@@ -951,4 +951,26 @@ const RiskMapChart = (() => {
     });
   }
 
+  function buildBarData() {
+    const rows = [];
+    Data.countries.forEach(country => {
+      const stat = getCountryStat(country, State.year, State.window, State.selectedCrops);
+      if (!stat) return;
+
+      // Pick the value for the selected bar metric
+      let value;
+      if      (local.barMetric === "temp")             value = stat.avgTemp;
+      else if (local.barMetric === "Yield")            value = stat.avgYield;
+      else if (local.barMetric === "Production")       value = stat.totalProd;
+      else if (local.barMetric === "Area harvested")   value = stat.totalArea;
+
+      if (value == null) return;
+      rows.push({ country, value, temp: stat.avgTemp });
+    });
+
+    // Sort direction
+    rows.sort((a, b) => local.barRank === "top" ? b.value - a.value : a.value - b.value);
+    return rows.slice(0, local.barN);
+  }
+
 main();
