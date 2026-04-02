@@ -39,6 +39,7 @@ async function loadData() {
     element:    d.Element,
     agriValue:  +d.Agri_Value  || 0,
     tempChange: +d.Temp_Change || null,
+    riskRows: [],
   }));
 
   Data.raw = raw;

@@ -103,6 +103,42 @@
       <div class="section-title" id="riskMapTitle">Climate Impact Risk Map (Country-Level)</div>
       <svg id="riskMapSvg" class="chart-area"></svg>
     </div>
+    <div class="panel" id="barPanel">
+      <div class="section-title" id="barPanelTitle">Country Rankings</div>
+
+      <div id="barControls" style="display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-bottom:8px;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <label for="barMetricSel" style="font-size:11px;color:#4a6080;font-weight:600;text-transform:uppercase;letter-spacing:.05em;">Rank by</label>
+          <select id="barMetricSel" style="font-size:11px;padding:3px 8px;border-radius:4px;border:1px solid #c8d8ec;background:#f5f7fa;color:#1a2a3a;cursor:pointer;">
+            <option value="temp">Temperature Anomaly</option>
+            <option value="Yield">Yield (kg/ha)</option>
+            <option value="Production">Production (t)</option>
+            <option value="Area harvested">Area Harvested (ha)</option>
+          </select>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:4px;">
+          <label style="font-size:11px;color:#4a6080;font-weight:600;text-transform:uppercase;letter-spacing:.05em;">Show</label>
+          <div id="rankToggle" style="display:flex;border:1px solid #c8d8ec;border-radius:4px;overflow:hidden;">
+            <button data-rank="top" class="rank-btn rank-active" style="padding:3px 12px;font-size:11px;border:none;cursor:pointer;background:#1a3a6b;color:#fff;font-weight:600;">▲ Highest</button>
+            <button data-rank="bottom" class="rank-btn" style="padding:3px 12px;font-size:11px;border:none;cursor:pointer;background:#f5f7fa;color:#4a6080;">▼ Lowest</button>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:6px;">
+          <label for="barNSel" style="font-size:11px;color:#4a6080;font-weight:600;text-transform:uppercase;letter-spacing:.05em;">Top N</label>
+          <select id="barNSel" style="font-size:11px;padding:3px 8px;border-radius:4px;border:1px solid #c8d8ec;background:#f5f7fa;color:#1a2a3a;cursor:pointer;">
+            <option value="10">10</option>
+            <option value="15" selected>15</option>
+            <option value="20">20</option>
+            <option value="30">30</option>
+          </select>
+        </div>
+      </div>
+
+      <svg id="barSvg" class="chart-area"></svg>
+    </div>
+  </div>
 
 
 
