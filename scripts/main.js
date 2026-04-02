@@ -894,4 +894,25 @@ const RiskMapChart = (() => {
       "Area harvested": { label: "Area Harvested (ha)",       fmt: v => d3.format(".3s")(v),     colorPalette: ["#f0d890","#d49820","#7a5000"] },
     };
 
+    function init() {
+      const container = document.getElementById("barPanel");
+      width  = container.clientWidth - 32;
+      height = 300;
+      margin = { top: 10, right: 90, bottom: 38, left: 115 };
+  
+      svg = d3.select("#barSvg")
+        .attr("width",  width)
+        .attr("height", height);
+  
+      svg.append("g").attr("class","axis x-axis-bar").attr("transform",`translate(0,${height-margin.bottom})`);
+      svg.append("g").attr("class","axis y-axis-bar").attr("transform",`translate(${margin.left},0)`);
+      svg.append("text").attr("class","bar-x-lbl")
+        .attr("x",(margin.left + width - margin.right)/2)
+        .attr("y",height - 4)
+        .attr("text-anchor","middle").attr("fill","#4a6080").attr("font-size","10px");
+  
+      // Wire up inline controls
+      bindBarControls();
+    }
+
 main();
