@@ -871,5 +871,27 @@ const RiskMapChart = (() => {
   return { init, update };
 })();
 
+/* =====================================================================
+   CHART 4 – HORIZONTAL BAR CHART
+   Supports ranking by: Temperature Anomaly, Yield, Production, Area Harvested.
+   Supports direction: highest (top) or lowest (bottom) N countries.
+   Automatically mirrors the global metric selector when it changes.
+   ===================================================================== */
+   const BarChart = (() => {
+    let svg, width, height, margin;
+  
+    // ---- Local bar chart state ----
+    // barMetric: "temp" | "Yield" | "Production" | "Area harvested"
+    // barRank  : "top"  | "bottom"
+    // barN     : number of countries shown
+    const local = { barMetric: "temp", barRank: "top", barN: 15 };
+  
+    // Metric metadata: label shown on axis and tooltip
+    const METRIC_META = {
+      temp:             { label: "Mean Temp. Anomaly (°C)",  fmt: v => v.toFixed(2)+"°C",       colorPalette: ["#2255aa","#e87030","#c02020"] },
+      "Yield":          { label: "Avg Yield (kg/ha)",         fmt: v => d3.format(",.0f")(v),    colorPalette: ["#bde0a8","#38a830","#1a5a10"] },
+      "Production":     { label: "Total Production (t)",      fmt: v => d3.format(".3s")(v),     colorPalette: ["#a8d4f0","#1a7abf","#093a6b"] },
+      "Area harvested": { label: "Area Harvested (ha)",       fmt: v => d3.format(".3s")(v),     colorPalette: ["#f0d890","#d49820","#7a5000"] },
+    };
 
 main();
