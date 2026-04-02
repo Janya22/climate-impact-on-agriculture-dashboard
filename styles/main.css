@@ -344,6 +344,7 @@ html, body {
 #scatterPanel { flex: 1; overflow: hidden;}
 #row2 { display: flex; gap: 16px; }
 #linePanel { flex: 1.35; overflow: hidden; }
+#barPanel  { flex: 1; overflow: hidden; }
 
 .chart-area { width: 100%; overflow: visible; }
 
