@@ -6,7 +6,8 @@ const Data = {
   years: [],
   iso3Map: new Map(),
   byCountryYearCrop: null,
-  byCountryYear: null
+  byCountryYear: null,
+  riskRows: [],
 };
 
 const State = {
@@ -39,7 +40,6 @@ async function loadData() {
     element:    d.Element,
     agriValue:  +d.Agri_Value  || 0,
     tempChange: +d.Temp_Change || null,
-    riskRows: [],
   }));
 
   Data.raw = raw;
@@ -317,6 +317,7 @@ function updateAll() {
   TempChart.update();
   CropTrendChart.update();
   RiskMapChart.update();
+  BarChart.update();
   document.getElementById("yearLabel").textContent = State.year;
   document.getElementById("yearSlider").value = State.year;
 }
@@ -331,6 +332,7 @@ function bindFilterControls() {
   if (metricSel) {
     metricSel.addEventListener("change", function() {
       State.metric = this.value;
+      BarChart.setMetric(this.value);
       updateAll();
     });
   }
@@ -368,6 +370,52 @@ function bindFilterControls() {
       updateAll();
     });
   }
+}
+
+//helper for barChart
+function getCountryStat(country, centerYear, windowSize, cropFilter = null) {
+  const half  = Math.floor(windowSize / 2);
+  const yrs   = d3.range(centerYear - half, centerYear + half + 1);
+  const yearMap = Data.byCountryYear.get(country);
+  if (!yearMap) return null;
+
+  let temps = [], yields = [], prods = [], areas = [];
+
+  if (!cropFilter || cropFilter.size === 0) {
+    yrs.forEach(y => {
+      const s = yearMap.get(y);
+      if (!s) return;
+      if (s.avgTemp   != null) temps.push(s.avgTemp);
+      if (s.avgYield  != null) yields.push(s.avgYield);
+      if (s.totalProd != null) prods.push(s.totalProd);
+      if (s.totalArea != null) areas.push(s.totalArea);
+    });
+  } else {
+    const countryYearMap = Data.byCountryYearCrop.get(country);
+    if (!countryYearMap) return null;
+    yrs.forEach(y => {
+      const byYear = countryYearMap.get(y);
+      if (!byYear) return;
+      cropFilter.forEach(crop => {
+        const rows = byYear.get(crop);
+        if (!rows) return;
+        rows.forEach(row => {
+          if (row.tempChange !== null) temps.push(row.tempChange);
+          if (row.element === "Yield")          yields.push(row.agriValue);
+          if (row.element === "Production")      prods.push(row.agriValue);
+          if (row.element === "Area harvested")  areas.push(row.agriValue);
+        });
+      });
+    });
+  }
+
+  if (!temps.length && !yields.length) return null;
+  return {
+    avgTemp:   temps.length  ? d3.mean(temps)  : null,
+    avgYield:  yields.length ? d3.mean(yields) : null,
+    totalProd: prods.length  ? d3.sum(prods)   : null,
+    totalArea: areas.length  ? d3.sum(areas)   : null,
+  };
 }
 
 const TempChart = (() => {
@@ -467,7 +515,7 @@ const TempChart = (() => {
 })();
 // Helper functions for Chart 2 
 
-// Chart 2 - Crop Trend Lines 
+// Chart 2 - Crop Trend Lines
 const CropTrendChart = (() => {
   let svg, width, height, margin;
 
@@ -590,7 +638,7 @@ const CropTrendChart = (() => {
   return { init, update };
 })();
 
-//loads data and initializes all controls and initial chart render
+// loads data and initializes all controls and initial chart render
 async function main() {
   try {
     await loadData();
@@ -605,6 +653,7 @@ async function main() {
 	TempChart.init();
   CropTrendChart.init();
   RiskMapChart.init(world);
+  BarChart.init();
   updateSelectionInfo();
 	TempChart.update();
   CropTrendChart.update();
@@ -879,44 +928,43 @@ const RiskMapChart = (() => {
    Automatically mirrors the global metric selector when it changes.
    ===================================================================== */
    const BarChart = (() => {
-    let svg, width, height, margin;
-  
-    // ---- Local bar chart state ----
-    // barMetric: "temp" | "Yield" | "Production" | "Area harvested"
-    // barRank  : "top"  | "bottom"
-    // barN     : number of countries shown
-    const local = { barMetric: "temp", barRank: "top", barN: 15 };
-  
-    // Metric metadata: label shown on axis and tooltip
-    const METRIC_META = {
-      temp:             { label: "Mean Temp. Anomaly (°C)",  fmt: v => v.toFixed(2)+"°C",       colorPalette: ["#2255aa","#e87030","#c02020"] },
-      "Yield":          { label: "Avg Yield (kg/ha)",         fmt: v => d3.format(",.0f")(v),    colorPalette: ["#bde0a8","#38a830","#1a5a10"] },
-      "Production":     { label: "Total Production (t)",      fmt: v => d3.format(".3s")(v),     colorPalette: ["#a8d4f0","#1a7abf","#093a6b"] },
-      "Area harvested": { label: "Area Harvested (ha)",       fmt: v => d3.format(".3s")(v),     colorPalette: ["#f0d890","#d49820","#7a5000"] },
-    };
+  let svg, width, height, margin;
 
-    function init() {
-      const container = document.getElementById("barPanel");
-      width  = container.clientWidth - 32;
-      height = 300;
-      margin = { top: 10, right: 90, bottom: 38, left: 115 };
-  
-      svg = d3.select("#barSvg")
-        .attr("width",  width)
-        .attr("height", height);
-  
-      svg.append("g").attr("class","axis x-axis-bar").attr("transform",`translate(0,${height-margin.bottom})`);
-      svg.append("g").attr("class","axis y-axis-bar").attr("transform",`translate(${margin.left},0)`);
-      svg.append("text").attr("class","bar-x-lbl")
-        .attr("x",(margin.left + width - margin.right)/2)
-        .attr("y",height - 4)
-        .attr("text-anchor","middle").attr("fill","#4a6080").attr("font-size","10px");
-  
-      // Wire up inline controls
-      bindBarControls();
-    }
+  // ---- Local bar chart state ----
+  // barMetric: "temp" | "Yield" | "Production" | "Area harvested"
+  // barRank  : "top"  | "bottom"
+  // barN     : number of countries shown
+  const local = { barMetric: "temp", barRank: "top", barN: 15 };
 
-    /**
+  // Metric metadata: label shown on axis and tooltip
+  const METRIC_META = {
+    temp:             { label: "Mean Temp. Anomaly (°C)",  fmt: v => v.toFixed(2)+"°C",       colorPalette: ["#2255aa","#e87030","#c02020"] },
+    "Yield":          { label: "Avg Yield (kg/ha)",         fmt: v => d3.format(",.0f")(v),    colorPalette: ["#bde0a8","#38a830","#1a5a10"] },
+    "Production":     { label: "Total Production (t)",      fmt: v => d3.format(".3s")(v),     colorPalette: ["#a8d4f0","#1a7abf","#093a6b"] },
+    "Area harvested": { label: "Area Harvested (ha)",       fmt: v => d3.format(".3s")(v),     colorPalette: ["#f0d890","#d49820","#7a5000"] },
+  };
+
+  function init() {
+    const container = document.getElementById("barPanel");
+    width  = container.clientWidth - 32;
+    height = 300;
+    margin = { top: 10, right: 90, bottom: 38, left: 115 };
+
+    svg = d3.select("#barSvg")
+      .attr("width",  width)
+      .attr("height", height);
+
+    svg.append("g").attr("class","axis x-axis-bar").attr("transform",`translate(0,${height-margin.bottom})`);
+    svg.append("g").attr("class","axis y-axis-bar").attr("transform",`translate(${margin.left},0)`);
+    svg.append("text").attr("class","bar-x-lbl")
+      .attr("x",(margin.left + width - margin.right)/2)
+      .attr("y",height - 4)
+      .attr("text-anchor","middle").attr("fill","#4a6080").attr("font-size","10px");
+
+    // Wire up inline controls
+    bindBarControls();
+  }
+  /**
    * Bind the three inline bar-chart controls:
    * - #barMetricSel : what to rank by
    * - #rankToggle buttons : top / bottom
@@ -974,7 +1022,7 @@ const RiskMapChart = (() => {
     return rows.slice(0, local.barN);
   }
 
-  function update() {
+    function update() {
     const data = buildBarData();
     if (!data.length) return;
 
@@ -1093,7 +1141,8 @@ const RiskMapChart = (() => {
     }
   }
 
-  return { init, update, setMetric };
+    return { init, update, setMetric };
 })();
+
 
 main();
