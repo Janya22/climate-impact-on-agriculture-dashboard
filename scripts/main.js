@@ -1055,4 +1055,22 @@ const RiskMapChart = (() => {
       exit => exit.transition().duration(300).attr("width",0).remove()
     );
 
+    // ---- Value labels ----
+    const lblSel = svg.selectAll(".bar-val-lbl").data(data, d => d.country);
+    lblSel.join(
+      enter => enter.append("text")
+        .attr("class","bar-val-lbl")
+        .attr("x", d => margin.left + xScale(d.value) + 4)
+        .attr("y", d => yScale(d.country) + yScale.bandwidth()/2 + 4)
+        .attr("fill","#4a6080").attr("font-size","9px")
+        .text(d => meta.fmt(d.value))
+        .attr("opacity",0)
+        .transition().duration(500).attr("opacity",1),
+      upd => upd.transition().duration(500)
+        .attr("x", d => margin.left + xScale(d.value) + 4)
+        .attr("y", d => yScale(d.country) + yScale.bandwidth()/2 + 4)
+        .text(d => meta.fmt(d.value)),
+      exit => exit.remove()
+    );
+
 main();
