@@ -1072,11 +1072,24 @@ const RiskMapChart = (() => {
         .text(d => meta.fmt(d.value)),
       exit => exit.remove()
     );
-    
+
     // ---- Highlight selected country ----
     svg.selectAll(".bar-rect")
       .attr("stroke", d => State.selectedCountries.size && State.selectedCountries.has(d.country) ? "#c02020" : "none")
       .attr("stroke-width", 2);
+  }
+
+  /**
+   * Expose setMetric so external controls (global metric dropdown)
+   * can sync the bar chart metric 
+   */
+  function setMetric(metric) {
+    if (!local.userOverride) {
+      local.barMetric = metric;
+      const sel = document.getElementById("barMetricSel");
+      if (sel) sel.value = metric;
+      update();
+    }
   }
 
 main();
