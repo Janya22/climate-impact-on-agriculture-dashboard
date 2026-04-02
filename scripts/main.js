@@ -1092,4 +1092,7 @@ const RiskMapChart = (() => {
     }
   }
 
+  return { init, update, setMetric };
+})();
+
 main();
