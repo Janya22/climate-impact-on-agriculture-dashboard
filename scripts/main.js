@@ -973,4 +973,51 @@ const RiskMapChart = (() => {
     return rows.slice(0, local.barN);
   }
 
+  function update() {
+    const data = buildBarData();
+    if (!data.length) return;
+
+    const meta   = METRIC_META[local.barMetric] || METRIC_META["temp"];
+    const innerW = width - margin.left - margin.right;
+    const innerH = height - margin.top - margin.bottom;
+
+    // X scale — always starts at 0 for bar chart readability
+    const xMax = d3.max(data, d => d.value);
+    const xMin = local.barRank === "bottom" ? d3.min(data, d => d.value) * 0.92 : 0;
+    const xScale = d3.scaleLinear()
+      .domain([xMin, xMax * 1.08])
+      .range([0, innerW]);
+
+    const yScale = d3.scaleBand()
+      .domain(data.map(d => d.country))
+      .range([margin.top, margin.top + innerH])
+      .padding(0.22);
+
+    // Colour scale — driven by metric palette
+    const cScale = d3.scaleSequential()
+      .domain([d3.min(data, d => d.value), xMax])
+      .interpolator(d3.interpolateRgbBasis(meta.colorPalette));
+
+    // Axes
+    const xFmt = local.barMetric === "temp"
+      ? v => v.toFixed(1)+"°"
+      : d3.format(".2s");
+    svg.select(".x-axis-bar").transition().duration(400)
+      .call(d3.axisBottom(xScale).ticks(5).tickFormat(xFmt));
+    svg.select(".y-axis-bar").transition().duration(400)
+      .call(d3.axisLeft(yScale).tickSize(0))
+      .selectAll("text").attr("fill","#1a2a3a").attr("font-size","10px");
+    svg.select(".y-axis-bar .domain").remove();
+
+    // X-axis label
+    const rankDir = local.barRank === "top" ? `▲ Top ${local.barN}` : `▼ Bottom ${local.barN}`;
+    svg.select(".bar-x-lbl").text(`${rankDir} countries — ${meta.label}`);
+
+    // ---- Update panel title ----
+    const cropStr = State.selectedCrops.size === 0 ? "All Crops"
+      : State.selectedCrops.size === 1 ? [...State.selectedCrops][0]
+      : `${State.selectedCrops.size} Crops`;
+    document.getElementById("barPanelTitle").textContent =
+      `Country Rankings — ${meta.label} · ${cropStr} · ${State.year}`;
+
 main();
