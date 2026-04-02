@@ -915,4 +915,40 @@ const RiskMapChart = (() => {
       bindBarControls();
     }
 
+    /**
+   * Bind the three inline bar-chart controls:
+   * - #barMetricSel : what to rank by
+   * - #rankToggle buttons : top / bottom
+   * - #barNSel : how many countries
+   */
+  function bindBarControls() {
+    // Metric selector — user explicitly choosing locks it from global sync
+    document.getElementById("barMetricSel").addEventListener("change", function() {
+      local.barMetric    = this.value;
+      local.userOverride = true;  // prevent global metric from overriding this choice
+      update();
+    });
+
+    // Rank direction toggle
+    document.querySelectorAll(".rank-btn").forEach(btn => {
+      btn.addEventListener("click", function() {
+        local.barRank = this.dataset.rank;
+        // Update active styling
+        document.querySelectorAll(".rank-btn").forEach(b => {
+          const isActive = b.dataset.rank === local.barRank;
+          b.style.background = isActive ? "#1a3a6b" : "#f5f7fa";
+          b.style.color       = isActive ? "#fff"    : "#4a6080";
+          b.style.fontWeight  = isActive ? "700"     : "400";
+        });
+        update();
+      });
+    });
+
+    // N selector
+    document.getElementById("barNSel").addEventListener("change", function() {
+      local.barN = +this.value;
+      update();
+    });
+  }
+
 main();
