@@ -821,7 +821,7 @@ function countryFromTopoId(numId) {
 }
 
 const RiskMapChart = (() => {
-  let svg, g, path, projection, width, height, features, color;
+  let svg, g, path, projection, width, height, features, color, zoom;
 
   function init(world) {
     const container = document.getElementById("linePanel");
@@ -846,7 +846,7 @@ const RiskMapChart = (() => {
       .on("click", onClick);
 
   
-  const zoom = d3.zoom()
+  zoom = d3.zoom()
     .scaleExtent([1, 8])
     .on("zoom", (event) => {
       g.attr("transform", event.transform);
@@ -855,6 +855,14 @@ const RiskMapChart = (() => {
   svg.call(zoom)
      .on("wheel.zoom", null)   
      .call(zoom);
+
+  // Add reset view button functionality
+  const resetViewBtn = document.getElementById("resetViewBtn");
+  if (resetViewBtn) {
+    resetViewBtn.addEventListener("click", () => {
+      svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity);
+    });
+  }
   }
 
   function riskByCountry() {
