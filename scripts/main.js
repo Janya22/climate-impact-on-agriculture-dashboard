@@ -1152,5 +1152,47 @@ const RiskMapChart = (() => {
     return { init, update, setMetric };
 })();
 
+//Heatmap
+const HeatmapChart = (function() {
+  let svg, width, height, margin;
+  let xScale, yScale, colorScale;
+  const MAX_COUNTRIES = 24;
+
+  function init() {
+    var container = document.getElementById("heatPanel");
+
+    width = container.clientWidth - 30; // small change
+    height = 300;
+
+    margin = {
+      top: 12,
+      right: 18,
+      bottom: 35,
+      left: 140
+    };
+
+    svg = d3.select("#heatSvg");
+
+    svg.attr("width", width)
+       .attr("height", height);
+
+    svg.append("g")
+       .attr("class", "axis x-axis-heat")
+       .attr("transform", "translate(0," + (height - margin.bottom) + ")");
+
+    svg.append("g")
+       .attr("class", "axis y-axis-heat")
+       .attr("transform", "translate(" + margin.left + ",0)");
+
+    svg.append("g")
+       .attr("class", "heat-cells");
+
+  }
+
+  return {
+    init
+  };
+
+})();
 
 main();
