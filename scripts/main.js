@@ -1152,47 +1152,26 @@ const RiskMapChart = (() => {
     return { init, update, setMetric };
 })();
 
-//Heatmap
-const HeatmapChart = (function() {
+const HeatmapChart = (() => {
   let svg, width, height, margin;
   let xScale, yScale, colorScale;
   const MAX_COUNTRIES = 24;
 
   function init() {
-    var container = document.getElementById("heatPanel");
-
-    width = container.clientWidth - 30; // small change
+    const container = document.getElementById("heatPanel");
+    width  = container.clientWidth - 32;
     height = 300;
+    margin = { top: 10, right: 20, bottom: 35, left: 140 };
 
-    margin = {
-      top: 12,
-      right: 18,
-      bottom: 35,
-      left: 140
-    };
+    svg = d3.select("#heatSvg")
+      .attr("width",  width)
+      .attr("height", height);
 
-    svg = d3.select("#heatSvg");
+    svg.append("g").attr("class","axis x-axis-heat").attr("transform",`translate(0,${height-margin.bottom})`);
+    svg.append("g").attr("class","axis y-axis-heat").attr("transform",`translate(${margin.left},0)`);
 
-    svg.attr("width", width)
-       .attr("height", height);
-
-    svg.append("g")
-       .attr("class", "axis x-axis-heat")
-       .attr("transform", "translate(0," + (height - margin.bottom) + ")");
-
-    svg.append("g")
-       .attr("class", "axis y-axis-heat")
-       .attr("transform", "translate(" + margin.left + ",0)");
-
-    svg.append("g")
-       .attr("class", "heat-cells");
+    svg.append("g").attr("class","heat-cells");
 
   }
-
-  return {
-    init
-  };
-
-})();
 
 main();
