@@ -469,13 +469,7 @@ html, body {
   .heat-cell {
     cursor: pointer;
     stroke: var(--bg);
-    stroke-width: 0.45;
-    transition: all 0.18s ease;
-    opacity: 0.95;
+    stroke-width: 0.4;
   }
-  
-  .heat-cell:hover {
-    stroke: var(--accent);
-    stroke-width: 1.4;
-    opacity: 1;
-  }
+
+  .heat-cell:hover { stroke: var(--accent); stroke-width: 1.2; }
