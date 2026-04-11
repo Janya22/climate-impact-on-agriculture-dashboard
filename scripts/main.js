@@ -1211,5 +1211,6 @@ const HeatmapChart = (() => {
 
     return { rows, countries, crops };
   }
+  
 
 main();
