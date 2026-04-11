@@ -1152,6 +1152,8 @@ const RiskMapChart = (() => {
     return { init, update, setMetric };
 })();
 
+//Heatmap Code
+
 const HeatmapChart = (() => {
   let svg, width, height, margin;
   let xScale, yScale, colorScale;
@@ -1173,5 +1175,41 @@ const HeatmapChart = (() => {
     svg.append("g").attr("class","heat-cells");
 
   }
+
+  function buildHeatData() {
+  const metric = State.metric;
+  const countries = State.selectedCountries.size
+    ? [...State.selectedCountries]
+    : Data.countries.slice(0, MAX_COUNTRIES);
+  const crops = getSelectedCropNames();
+
+  const rows = [];
+  countries.forEach(country => {
+    const cMap = Data.byCountryYearCrop.get(country);
+    if (!cMap) return;
+
+    crops.forEach(crop => {
+      const tempVals = [];
+      const metricVals = [];
+      const yearsSeen = new Set();
+
+      cMap.forEach((cropMap, year) => {
+        const recs = cropMap.get(crop);
+        if (!recs) return;
+        const tVals = recs.map(r => r.tempChange).filter(v => v != null);
+        const aVals = recs.filter(r => r.element = metric).map(r => r.agriValue); // slight error here
+        if (!tVals.length || !aVals.length) return;
+        yearsSeen.add(+year);
+        tempVals.push(d3.mean(tVals));
+        metricVals.push(metric === "Production" || metric === "Area harvested" ? d3.sum(aVals) : d3.mean(aVals));
+      });
+
+      const corr = yearsSeen.size >= 10 ? pearsonCorr(tempVals, metricVals) : null;
+      rows.push({ country, crop, corr });
+    });
+  });
+
+  return { rows, countries, crops };
+}
 
 main();
