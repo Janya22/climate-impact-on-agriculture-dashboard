@@ -1215,50 +1215,44 @@ const HeatmapChart = (() => {
   function update() {
     const { rows, countries, crops } = buildHeatData();
     if (!rows.length) return;
-  
+
     xScale = d3.scaleBand()
       .domain(crops)
       .range([margin.left, width - margin.right])
-      .padding(0.5); // slight error (too large padding)
-  
+      .padding(0.05);
+
     yScale = d3.scaleBand()
       .domain(countries)
       .range([margin.top, height - margin.bottom])
       .padding(0.05);
-  
+
     colorScale = d3.scaleDiverging([-1, 0, 1], d3.interpolateRdBu);
-  
-   
+
+
     svg.select(".x-axis-heat").transition().duration(400)
-      .call(d3.axisBottom(xScale).tickSize(0)); // slight change
-  
+      .call(d3.axisBottom(xScale).tickSize(3));
     svg.select(".y-axis-heat").transition().duration(400)
       .call(d3.axisLeft(yScale).tickSize(0))
       .selectAll("text")
         .attr("fill", d => State.selectedCountries.size && State.selectedCountries.has(d) ? "#c02020" : "#5a7490")
         .attr("font-size", "9.5px")
         .attr("font-weight", d => State.selectedCountries.size && State.selectedCountries.has(d) ? "700" : "400");
-  
     svg.select(".y-axis-heat .domain").remove();
-  
-    const cellSel = svg.select(".heat-cells")
-      .selectAll(".heat-cell")
-      .data(rows, d => d.country + d.crop); // slight error (missing separator)
-  
+
+    const cellSel = svg.select(".heat-cells").selectAll(".heat-cell").data(rows, d => d.country + "|" + d.crop);
     cellSel.join(
       enter => enter.append("rect")
         .attr("class","heat-cell")
         .attr("x", d => xScale(d.crop))
         .attr("y", d => yScale(d.country))
-        .attr("width",  xScale.bandwidth)
-        .attr("height", yScale.bandwidth()) // slight error (missing () above)
+        .attr("width",  xScale.bandwidth())
+        .attr("height", yScale.bandwidth())
         .attr("fill", d => d.corr != null ? colorScale(d.corr) : "#e6eef7")
         .attr("opacity",0)
         .on("mousemove", onCellMouseMove)
         .on("mouseleave", () => tt.hide())
         .on("click", onCellClick)
         .transition().duration(400).attr("opacity", 1),
-  
       update => update.transition().duration(400)
         .attr("x", d => xScale(d.crop))
         .attr("y", d => yScale(d.country))
@@ -1267,9 +1261,25 @@ const HeatmapChart = (() => {
         .attr("fill", d => d.corr != null ? colorScale(d.corr) : "#e6eef7")
         .attr("stroke", d => State.selectedCountries.size && State.selectedCountries.has(d.country) ? "#1a3a6b" : "var(--bg)")
         .attr("stroke-width", d => State.selectedCountries.size && State.selectedCountries.has(d.country) ? 0.8 : 0.3),
-  
       exit => exit.transition().duration(200).attr("opacity",0).remove()
     );
   }
+
+  function onCellMouseMove(evt, d) {
+    tt.show(evt, `
+      <div class="tt-title">${d.country} — ${d.crop}</div>
+      <div class="tt-row"><span class="tt-key">Correlation</span><span class="tt-val">${d.corr != null ? d.corr.toFixed(3) : "—"}</span></div>
+    `);
+    tt.move(evt);
+  }
+
+  function onCellClick(evt, d) {
+    setSelectedCountry(d.country);
+    setSelectedCrop(d.crop);
+    updateAll();
+  }
+
+  return { init, update };
+})();
 
 main();
