@@ -33,6 +33,7 @@ const State = {
   selectedCountry: null,
   selectedCrop: "ALL",
   metric: "Yield",
+  startYear: 1961,
   year: 2010,
   trendCrops: new Set()
 };
@@ -344,11 +345,14 @@ function getSelectedCropNames() {
   return State.selectedCrops.size ? [...State.selectedCrops] : [...Data.crops];
 }
 
-// Use the selected year as the end of the visible cumulative range for line charts.
+// Use the selected start and end years as the visible range for line charts.
 function getSelectedYearRange() {
   const minYear = Data.years[0];
-  const maxYear = Math.min(State.year, Data.years[Data.years.length - 1]);
-  return [minYear, maxYear];
+  const maxYear = Data.years[Data.years.length - 1];
+  return [
+    Math.max(minYear, Math.min(State.startYear, State.year)),
+    Math.min(maxYear, Math.max(State.startYear, State.year))
+  ];
 }
 
 function updateStoryCard() {
@@ -378,15 +382,61 @@ function updateAll() {
   BarChart.update();
   HeatmapChart.update();
   updateStoryCard();
-  document.getElementById("yearLabel").textContent = State.year;
-  document.getElementById("yearSlider").value = State.year;
+  const startYearInput = document.getElementById("startYearInput");
+  const startYearSlider = document.getElementById("startYearSlider");
+  const yearInput = document.getElementById("yearInput");
+  const yearSlider = document.getElementById("yearSlider");
+  if (startYearInput) startYearInput.value = State.startYear;
+  if (startYearSlider) startYearSlider.value = State.startYear;
+  if (yearInput) yearInput.value = State.year;
+  if (yearSlider) yearSlider.value = State.year;
+  updateYearRangeFill();
+}
+
+function updateYearRangeFill() {
+  const fill = document.getElementById("yearRangeFill");
+  if (!fill || !Data.years.length) return;
+
+  const minYear = Data.years[0];
+  const maxYear = Data.years[Data.years.length - 1];
+  const span = maxYear - minYear || 1;
+  const left = ((State.startYear - minYear) / span) * 100;
+  const right = ((State.year - minYear) / span) * 100;
+
+  fill.style.left = `${Math.min(left, right)}%`;
+  fill.style.width = `${Math.abs(right - left)}%`;
 }
 
 // Connect top-level controls to State and redraw the dashboard on change.
 function bindFilterControls() {
   const yearSlider = document.getElementById("yearSlider");
-  const yearLabel = document.getElementById("yearLabel");
+  const startYearSlider = document.getElementById("startYearSlider");
+  const startYearInput = document.getElementById("startYearInput");
+  const yearInput = document.getElementById("yearInput");
   const resetBtn = document.getElementById("resetBtn");
+
+  function normalizeYear(value) {
+    const minYear = Data.years[0];
+    const maxYear = Data.years[Data.years.length - 1];
+    const nextYear = Math.round(+value);
+    return Number.isFinite(nextYear) ? Math.max(minYear, Math.min(maxYear, nextYear)) : null;
+  }
+
+  function setStartYear(value) {
+    const nextYear = normalizeYear(value);
+    if (nextYear == null) return updateAll();
+    State.startYear = nextYear;
+    if (State.startYear > State.year) State.year = State.startYear;
+    updateAll();
+  }
+
+  function setYear(value) {
+    const nextYear = normalizeYear(value);
+    if (nextYear == null) return updateAll();
+    State.year = nextYear;
+    if (State.year < State.startYear) State.startYear = State.year;
+    updateAll();
+  }
 
   const metricSel = document.getElementById("metricSel");
   if (metricSel) {
@@ -399,10 +449,51 @@ function bindFilterControls() {
 
   if (yearSlider) {
     State.year = +yearSlider.value;
+    yearSlider.min = Data.years[0];
+    yearSlider.max = Data.years[Data.years.length - 1];
     yearSlider.addEventListener("input", function() {
-      State.year = +this.value;
-      if (yearLabel) yearLabel.textContent = this.value;
-      updateAll();
+      setYear(this.value);
+    });
+  }
+
+  if (startYearSlider) {
+    startYearSlider.min = Data.years[0];
+    startYearSlider.max = Data.years[Data.years.length - 1];
+    startYearSlider.value = State.startYear;
+    startYearSlider.addEventListener("input", function() {
+      setStartYear(this.value);
+    });
+  }
+
+  if (startYearInput) {
+    startYearInput.min = Data.years[0];
+    startYearInput.max = Data.years[Data.years.length - 1];
+    State.startYear = +startYearInput.value;
+    startYearInput.addEventListener("change", function() {
+      setStartYear(this.value);
+    });
+    startYearInput.addEventListener("keydown", function(event) {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        setStartYear(this.value);
+        this.blur();
+      }
+    });
+  }
+
+  if (yearInput) {
+    yearInput.min = Data.years[0];
+    yearInput.max = Data.years[Data.years.length - 1];
+    yearInput.value = State.year;
+    yearInput.addEventListener("change", function() {
+      setYear(this.value);
+    });
+    yearInput.addEventListener("keydown", function(event) {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        setYear(this.value);
+        this.blur();
+      }
     });
   }
 

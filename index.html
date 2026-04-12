@@ -80,11 +80,23 @@
       </select>
     </div>
 
-    <!-- Year slider will slide through the years 1961–2023 -->
-    <div class="ctrl-group">
-      <label>Year</label>
-      <input type="range" id="yearSlider" min="1961" max="2023" value="2010" step="1" />
-      <span id="yearLabel">2010</span>
+    <!-- Year controls choose the visible time span -->
+    <div class="ctrl-group year-ctrl-group">
+      <label>Years</label>
+      <div class="year-bound">
+        <span>Start Year</span>
+        <input type="number" id="startYearInput" min="1961" max="2023" value="1961" step="1" aria-label="Start year" />
+      </div>
+      <div class="year-range-control" aria-label="Year range slider">
+        <div class="year-range-track"></div>
+        <div class="year-range-fill" id="yearRangeFill"></div>
+        <input type="range" id="startYearSlider" min="1961" max="2023" value="1961" step="1" aria-label="Start year slider" />
+        <input type="range" id="yearSlider" min="1961" max="2023" value="2010" step="1" aria-label="End year slider" />
+      </div>
+      <div class="year-bound">
+        <span>End Year</span>
+        <input type="number" id="yearInput" min="1961" max="2023" value="2010" step="1" aria-label="End year" />
+      </div>
     </div>
 
     <!-- Country multi-select dropdown will allow selecting multiple countries -->
