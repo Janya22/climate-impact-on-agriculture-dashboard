@@ -302,7 +302,7 @@ function setSelectedCountry(countryName) {
     State.selectedCountries = new Set([countryName]);
   }
 
-  updateSelectionInfo();
+  syncSelectionState();
 }
 
 // Select one crop from chart clicks, or clear the crop selection.
@@ -313,6 +313,46 @@ function setSelectedCrop(cropName) {
     State.selectedCrops = new Set([cropName]);
   }
   syncSelectionState();
+}
+
+// Keep dropdown checkboxes and summary text matched to chart-click selections.
+function syncSelectionState() {
+  document.querySelectorAll("#countrySel-list input[type='checkbox']").forEach(cb => {
+    const country = cb.closest(".multisel-item")?.dataset.value;
+    cb.checked = State.selectedCountries.has(country);
+  });
+
+  document.querySelectorAll("#cropSel-list input[type='checkbox']").forEach(cb => {
+    const crop = cb.closest(".multisel-item")?.dataset.value;
+    cb.checked = State.selectedCrops.has(crop);
+  });
+
+  const countryCount = State.selectedCountries.size;
+  const cropCount = State.selectedCrops.size;
+  const selectedCountry = countryCount === 1 ? [...State.selectedCountries][0] : null;
+
+  const badge = document.getElementById("stat-selected");
+  if (badge) {
+    badge.textContent = countryCount === 0 ? "All Countries"
+      : countryCount === 1 ? selectedCountry
+      : `${countryCount} Countries`;
+  }
+
+  const countryPh = document.querySelector("#countrySel-pills .multisel-placeholder");
+  if (countryPh) {
+    countryPh.textContent = countryCount === 0 ? "All countries"
+      : countryCount === 1 ? selectedCountry
+      : `${countryCount} selected`;
+  }
+
+  const cropPh = document.querySelector("#cropSel-pills .multisel-placeholder");
+  if (cropPh) {
+    cropPh.textContent = cropCount === 0 ? "All crops"
+      : cropCount === 1 ? [...State.selectedCrops][0]
+      : `${cropCount} crops selected`;
+  }
+
+  updateSelectionInfo();
 }
 
 // Empty crop selection means select "all crops" across the dashboard.
@@ -1307,7 +1347,6 @@ async function main() {
     const testYear = 2010;
     const yearData = Data.byCountryYear.get(testCountry)?.get(testYear);
     updateAll();
-    bindControls();
     console.log(`Test Result for ${testCountry} in ${testYear}:`, yearData);
   } catch (error) {
     console.error("Data loading failed: Check if the CSV filename is correct:", error);
