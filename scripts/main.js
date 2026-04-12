@@ -349,22 +349,18 @@ function updateStoryCard() {
   const cardEl = document.getElementById("dynamic-story-text");
   if (!cardEl) return; // Failsafe if the HTML element isn't added yet
 
-  // Find the closest story year that is less than or equal to the current slider year
-  const years = Object.keys(STORY_CARDS).map(Number).sort((a,b) => b - a);
   let activeStory = "Use the slider to explore the historical context of global agriculture.";
   let activeYear = null;
 
-  for (let y of years) {
-    if (State.year >= y) {
-      activeStory = STORY_CARDS[y];
-      activeYear = y;
-      break;
-    }
+  // STRICT MATCH: Only display the story if the slider is exactly on the year the event occurred
+  if (STORY_CARDS[State.year]) {
+    activeStory = STORY_CARDS[State.year];
+    activeYear = State.year;
   }
 
-  // Update the HTML inside the card
+  // Update the HTML inside the card with the new heading format
   cardEl.innerHTML = activeYear
-    ? `<strong>Era starting ~${activeYear}:</strong> ${activeStory}`
+    ? `<strong style="color: #2255aa; font-size: 15px;">Major event of '${activeYear}':</strong> ${activeStory}`
     : activeStory;
 }
 
