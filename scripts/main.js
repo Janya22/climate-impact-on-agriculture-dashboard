@@ -14,6 +14,18 @@ const Data = {
   riskRows: [],
 };
 
+// Predefined story cards defined by significant years in global agriculture history.
+const STORY_CARDS = {
+  1961: "The Green Revolution begins. The introduction of high-yield seed varieties and synthetic fertilizers triggers a massive upward trend in global agricultural production.",
+  1991: "The fall of the Soviet Union. Notice the volatility in Eastern European yields as agricultural systems undergo sudden, massive restructuring.",
+  1998: "A historically severe El Niño weather pattern strikes. Watch the yield drops in Southeast Asian countries as droughts restrict rice production.",
+  2008: "The Global Food Price Crisis. A combination of severe weather shocks and export bans pushes the global food supply chain to its breaking point.",
+  2012: "A historic drought sweeps across the American Midwest. If you filter to the USA and Maize, you will see a sharp dip in yields this year.",
+  2022: "Major geopolitical conflicts disrupt the export of wheat, sunflower oil, and crucial synthetic fertilizers, threatening global food security."
+};
+
+
+
 // State is the current dashboard selection that every chart reads from.
 const State = {
   selectedCountries: new Set(), // Sets keep filter selections unique.
@@ -36,6 +48,19 @@ const CROP_COLOURS = {
   "Wheat":         "#e86038"
 };
 
+// harcoded dictionary for historical events to show as shaded bands on the temperature chart, with crop icons for the most affected crops
+const HISTORICAL_EVENTS = [
+  // events before 1990
+  { start: 1972, end: 1973, crops: ["Wheat", "Rice"], title: "Global Food Crisis & El Niño", desc: "Massive Soviet grain purchases combined with global weather anomalies spiked prices and disrupted supplies." },
+  { start: 1982, end: 1983, crops: ["Wheat", "Maize (corn)"], title: "Super El Niño", desc: "One of the strongest El Niño events on record caused severe droughts in Australia and Africa." },
+  
+  // events after 1990
+  { start: 1991, end: 1991, crops: ["Wheat", "Barley", "Potatoes"], title: "Soviet Union Collapse", desc: "Massive agricultural restructuring caused temporary drops in Eastern Europe." },
+  { start: 1997, end: 1998, crops: ["Rice", "Maize (corn)"], title: "Severe El Niño", desc: "Global droughts heavily impacted rice and maize yields in Asia." },
+  { start: 2007, end: 2008, crops: ["Wheat", "Rice", "Maize (corn)", "Soya beans"], title: "Food Price Crisis", desc: "Droughts in grain-producing nations combined with high oil prices." },
+  { start: 2012, end: 2012, crops: ["Maize (corn)", "Soya beans"], title: "North American Drought", desc: "Severe heatwave disrupted US maize and soybean production." },
+  { start: 2022, end: 2023, crops: ["Wheat", "Barley"], title: "Geopolitical Conflict", desc: "Supply chain disruptions affecting global wheat and fertilizer exports." }
+];
 // 2. Load and organize the dataset
 
 // Load the CSV once, then build faster lookup tables for the charts.
@@ -302,7 +327,7 @@ function setSelectedCountry(countryName) {
     State.selectedCountries = new Set([countryName]);
   }
 
-  syncSelectionState();
+  updateSelectionInfo();
 }
 
 // Select one crop from chart clicks, or clear the crop selection.
@@ -315,49 +340,32 @@ function setSelectedCrop(cropName) {
   syncSelectionState();
 }
 
-// Keep dropdown checkboxes and summary text matched to chart-click selections.
-function syncSelectionState() {
-  document.querySelectorAll("#countrySel-list input[type='checkbox']").forEach(cb => {
-    const country = cb.closest(".multisel-item")?.dataset.value;
-    cb.checked = State.selectedCountries.has(country);
-  });
-
-  document.querySelectorAll("#cropSel-list input[type='checkbox']").forEach(cb => {
-    const crop = cb.closest(".multisel-item")?.dataset.value;
-    cb.checked = State.selectedCrops.has(crop);
-  });
-
-  const countryCount = State.selectedCountries.size;
-  const cropCount = State.selectedCrops.size;
-  const selectedCountry = countryCount === 1 ? [...State.selectedCountries][0] : null;
-
-  const badge = document.getElementById("stat-selected");
-  if (badge) {
-    badge.textContent = countryCount === 0 ? "All Countries"
-      : countryCount === 1 ? selectedCountry
-      : `${countryCount} Countries`;
-  }
-
-  const countryPh = document.querySelector("#countrySel-pills .multisel-placeholder");
-  if (countryPh) {
-    countryPh.textContent = countryCount === 0 ? "All countries"
-      : countryCount === 1 ? selectedCountry
-      : `${countryCount} selected`;
-  }
-
-  const cropPh = document.querySelector("#cropSel-pills .multisel-placeholder");
-  if (cropPh) {
-    cropPh.textContent = cropCount === 0 ? "All crops"
-      : cropCount === 1 ? [...State.selectedCrops][0]
-      : `${cropCount} crops selected`;
-  }
-
-  updateSelectionInfo();
-}
-
 // Empty crop selection means select "all crops" across the dashboard.
 function getSelectedCropNames() {
   return State.selectedCrops.size ? [...State.selectedCrops] : [...Data.crops];
+}
+
+function updateStoryCard() {
+  const cardEl = document.getElementById("dynamic-story-text");
+  if (!cardEl) return; // Failsafe if the HTML element isn't added yet
+
+  // Find the closest story year that is less than or equal to the current slider year
+  const years = Object.keys(STORY_CARDS).map(Number).sort((a,b) => b - a);
+  let activeStory = "Use the slider to explore the historical context of global agriculture.";
+  let activeYear = null;
+
+  for (let y of years) {
+    if (State.year >= y) {
+      activeStory = STORY_CARDS[y];
+      activeYear = y;
+      break;
+    }
+  }
+
+  // Update the HTML inside the card
+  cardEl.innerHTML = activeYear
+    ? `<strong>Era starting ~${activeYear}:</strong> ${activeStory}`
+    : activeStory;
 }
 
 // Central redraw path after any filter or chart interaction changes State.
@@ -367,6 +375,7 @@ function updateAll() {
   RiskMapChart.update();
   BarChart.update();
   HeatmapChart.update();
+  updateStoryCard();
   document.getElementById("yearLabel").textContent = State.year;
   document.getElementById("yearSlider").value = State.year;
 }
@@ -655,6 +664,8 @@ const TempChart = (() => {
     svg.append("g").attr("class", "axis x-axis-temp").attr("transform", `translate(0,${height - margin.bottom})`);
     svg.append("g").attr("class", "axis y-axis-temp").attr("transform", `translate(${margin.left},0)`);
     svg.append("g").attr("class", "temp-lines");
+    svg.append("g").attr("class", "event-bands");
+    svg.append("g").attr("class", "temp-lines");
     console.log("TempChart initialized with width:", width, "height:", height);
   }
 
@@ -698,6 +709,38 @@ const TempChart = (() => {
     const allPoints = series.flatMap(s => s.vals);
     const x = d3.scaleLinear().domain(d3.extent(allPoints, d => d.year)).range([margin.left, width - margin.right]);
     const y = d3.scaleLinear().domain(d3.extent(allPoints, d => d.temp)).nice().range([height - margin.bottom, margin.top]);
+
+    const activeEvents = HISTORICAL_EVENTS.filter(e => {
+      // Temp chart only cares about the country, NOT the crops
+      return !e.country || (State.selectedCountries.size > 0 && State.selectedCountries.has(e.country));
+    });
+
+    const bandSel = svg.select(".event-bands").selectAll(".event-band").data(activeEvents, d => d.title);
+    bandSel.join(
+      enter => enter.append("rect")
+        .attr("class", "event-band")
+        .attr("y", margin.top)
+        .attr("height", height - margin.top - margin.bottom)
+        .attr("fill", "#c02020")
+        .attr("opacity", 0.08) // Faint red background
+        .on("mousemove", (evt, d) => {
+          tt.show(evt, `
+            <div class="tt-title">${d.start}${d.start !== d.end ? '–' + d.end : ''}: ${d.title}</div>
+            <div class="tt-row"><span class="tt-val">${d.desc}</span></div>
+          `);
+        })
+        .on("mouseleave", () => tt.hide())
+        .call(applyBandPosition, x),
+      update => update.call(applyBandPosition, x),
+      exit => exit.remove()
+    );
+
+    // Helper to position bands
+    function applyBandPosition(selection, xScale) {
+      selection
+        .attr("x", d => d.start === d.end ? xScale(d.start) - 6 : xScale(d.start))
+        .attr("width", d => d.start === d.end ? 12 : Math.max(xScale(d.end) - xScale(d.start), 2));
+    }
 
     svg.select(".x-axis-temp").call(d3.axisBottom(x).ticks(8).tickFormat(d3.format("d")));
     svg.select(".y-axis-temp").call(d3.axisLeft(y).ticks(6));
@@ -746,6 +789,8 @@ const CropTrendChart = (() => {
     svg = d3.select("#trendSvg").attr("width", width).attr("height", height);
     svg.append("g").attr("class", "axis x-axis-trend").attr("transform", `translate(0,${height - margin.bottom})`);
     svg.append("g").attr("class", "axis y-axis-trend").attr("transform", `translate(${margin.left},0)`);
+    svg.append("g").attr("class", "trend-lines");
+    svg.append("g").attr("class", "event-bands");
     svg.append("g").attr("class", "trend-lines");
     svg.append("text")
       .attr("class", "y-label-trend")
@@ -833,6 +878,43 @@ const CropTrendChart = (() => {
 
     svg.select(".x-axis-trend").call(d3.axisBottom(x).ticks(8).tickFormat(d3.format("d")));
     svg.select(".y-axis-trend").call(d3.axisLeft(y).ticks(6).tickFormat(d3.format(",.0f")));
+    
+    // If the event has a country, it must match the selected countries. If it has crops, at least one must match the current crops on the chart. If it has neither, it's always active.
+    const activeEvents = HISTORICAL_EVENTS.filter(e => {
+      const countryMatch = !e.country || (State.selectedCountries.size > 0 && State.selectedCountries.has(e.country));
+      let cropMatch = true; 
+      if (e.crops && e.crops.length > 0) {
+        cropMatch = e.crops.some(c => activeCrops.has(c)); 
+      }
+
+      return countryMatch && cropMatch; 
+    });
+
+    const bandSel = svg.select(".event-bands").selectAll(".event-band").data(HISTORICAL_EVENTS);
+    bandSel.join(
+      enter => enter.append("rect")
+        .attr("class", "event-band")
+        .attr("y", margin.top)
+        .attr("height", height - margin.top - margin.bottom)
+        .attr("fill", "#c02020")
+        .attr("opacity", 0.08) // Faint red background
+        .on("mousemove", (evt, d) => {
+          tt.show(evt, `
+            <div class="tt-title">${d.start}${d.start !== d.end ? '–' + d.end : ''}: ${d.title}</div>
+            <div class="tt-row"><span class="tt-val">${d.desc}</span></div>
+          `);
+        })
+        .on("mouseleave", () => tt.hide())
+        .call(applyBandPosition, x),
+      update => update.call(applyBandPosition, x),
+      exit => exit.remove()
+    );
+
+    function applyBandPosition(selection, xScale) {
+      selection
+        .attr("x", d => d.start === d.end ? xScale(d.start) - 6 : xScale(d.start))
+        .attr("width", d => d.start === d.end ? 12 : Math.max(xScale(d.end) - xScale(d.start), 2));
+    }
 
     const line = d3.line().x(d => x(d.year)).y(d => y(d.val)).curve(d3.curveMonotoneX);
 
@@ -1347,6 +1429,7 @@ async function main() {
     const testYear = 2010;
     const yearData = Data.byCountryYear.get(testCountry)?.get(testYear);
     updateAll();
+    bindControls();
     console.log(`Test Result for ${testCountry} in ${testYear}:`, yearData);
   } catch (error) {
     console.error("Data loading failed: Check if the CSV filename is correct:", error);
