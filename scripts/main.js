@@ -318,6 +318,7 @@ function updateAll() {
   CropTrendChart.update();
   RiskMapChart.update();
   BarChart.update();
+  HeatmapChart.update();
   document.getElementById("yearLabel").textContent = State.year;
   document.getElementById("yearSlider").value = State.year;
 }
@@ -654,6 +655,7 @@ async function main() {
   CropTrendChart.init();
   RiskMapChart.init(world);
   BarChart.init();
+  HeatmapChart.init();
   updateSelectionInfo();
 	TempChart.update();
   CropTrendChart.update();
