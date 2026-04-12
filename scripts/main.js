@@ -1,4 +1,8 @@
 console.log("!!! SCRIPT IS ALIVE !!!");
+
+// 1. Shared data and app state
+
+// Data is the shared cache after the CSV is loaded and reorganized.
 const Data = {
   raw: [],
   countries: [],
@@ -10,8 +14,9 @@ const Data = {
   riskRows: [],
 };
 
+// State is the current dashboard selection that every chart reads from.
 const State = {
-  selectedCountries: new Set(), // set to prevent duplicates 
+  selectedCountries: new Set(), // Sets keep filter selections unique.
   selectedCrops: new Set(),
   selectedCountry: null,
   selectedCrop: "ALL",
@@ -31,6 +36,9 @@ const CROP_COLOURS = {
   "Wheat":         "#e86038"
 };
 
+// 2. Load and organize the dataset
+
+// Load the CSV once, then build faster lookup tables for the charts.
 async function loadData() {
   const raw = await d3.csv("data/Merged_FAOSTAT_Cleaned.csv", d => ({
     country:    d.Country,
@@ -44,25 +52,18 @@ async function loadData() {
 
   Data.raw = raw;
 
-  // Unique sorted collections
+  // Shared lists used by controls and chart domains.
   Data.countries = [...new Set(raw.map(d => d.country))].sort();
   Data.crops      = [...new Set(raw.map(d => d.crop))].sort();
   Data.years      = [...new Set(raw.map(d => d.year))].sort((a, b) => a - b);
 
-  // Build iso3Map: country name → iso3
+  // Build a map from country name to ISO3 code for joining with the topojson later.
   raw.forEach(d => { if (!Data.iso3Map.has(d.country)) Data.iso3Map.set(d.country, d.iso3); });
 
-  /*
-   * Build byCountryYearCrop:
-   *  Map<countryName → Map<year → Map<cropName → { yield, prod, area, temp }>>>
-   */
+  // Nested lookup for country/year/crop-specific rows.
   Data.byCountryYearCrop = d3.group(raw, d => d.country, d => d.year, d => d.crop);
 
-  /*
-   * Build byCountryYear:
-   *  Map<countryName → Map<year → { avgTemp, yield, production, area }>>
-   * Aggregated across all crops (mean for temp, sum for production/area, mean for yield).
-   */
+  // Country/year summary used by charts that do not need crop-level detail.
   Data.byCountryYear = new Map();
   Data.countries.forEach(country => {
     const byYear = new Map();
@@ -95,7 +96,9 @@ async function loadData() {
   return raw;
 }
 
-//gets the data for number of countires, crops, time span to be mentioned in the badges at header
+// 3. Controls and selection UI
+
+// Fill the header badges from the loaded dataset.
 function updateStatBadges() {
   document.getElementById("stat-countries").textContent = Data.countries.length;
   document.getElementById("stat-crops").textContent = Data.crops.length;
@@ -106,6 +109,7 @@ function updateStatBadges() {
   }
 }
 
+// Show the current country/crop filter summary beside the controls.
 function updateSelectionInfo() {
   const countryCount = State.selectedCountries.size;
   const cropCount = State.selectedCrops.size;
@@ -120,7 +124,7 @@ function updateSelectionInfo() {
 
   d3.select("#selInfo").text(`Showing ${cLabel} and ${pLabel}`);
 }
-//generates list of countries in the dropdown 
+// Build the country checkbox list.
 function initCountryList() {
   const countryList = d3.select("#countrySel-list");
 
@@ -146,9 +150,9 @@ function initCountryList() {
 
   countryItems.append("span")
     .text(d => d);
-//   d3.select("#countrySel-dropdown").style("display", "block");
 }
-//sets up the click event listener to show or hide the country and crop selection dropdown
+
+// Open one multi-select dropdown at a time, then close it on outside click.
 function bindDropdownToggles() {
   const configs = [
     { triggerId: "countrySel-trigger", dropdownId: "countrySel-dropdown" },
@@ -174,7 +178,7 @@ function bindDropdownToggles() {
     document.getElementById("cropSel-dropdown").style.display = "none";
   });
 }
-//handles the logic of updating the state when a country is selected or deselected, and also updates the badge and placeholder text accordingly
+// Keep country filter state, header badge, and dropdown text in sync.
 function updateCountrySelection(country, isChecked) {
   if (isChecked) State.selectedCountries.add(country);
   else State.selectedCountries.delete(country);
@@ -199,7 +203,7 @@ function updateCountrySelection(country, isChecked) {
 
   console.log("State updated:", Array.from(State.selectedCountries));
 }
-//generates list of crops in the dropdown and sets up the click event listener to select / deselect crops
+// Build the crop checkbox list.
 function initCropList() {
   const cropList = d3.select("#cropSel-list");
 
@@ -227,7 +231,7 @@ function initCropList() {
   cropItems.append("span")
     .text(d => d);
 }
-//handles the logic of updating the state when a crop is selected or deselected and updating the placeholder
+// Keep crop filter state and dropdown text in sync.
 function updateCropSelection(crop, isChecked) {
   if (isChecked) {
     State.selectedCrops.add(crop);
@@ -251,7 +255,7 @@ function updateCropSelection(crop, isChecked) {
 
 const tt = {
   el: null,
-  //returns the tooltip element and creates it if it does not exist
+  // Reuse the page tooltip, or create one if the HTML is missing it.
   getEl() {
     if (!this.el) {
       this.el = document.getElementById("tooltip");
@@ -263,13 +267,13 @@ const tt = {
     }
     return this.el;
   },
-  //shows tooltip content near the pointer
+  // Show tooltip content near the pointer.
   show(evt, html) {
     this.getEl().innerHTML = html;
     this.getEl().classList.add("visible");
     this.move(evt);
   },
-  //changes tooltip position so it stays visible 
+  // Keep the tooltip inside the viewport.
   move(evt) {
     const x = evt.clientX + 14;
     const y = evt.clientY - 10;
@@ -288,7 +292,9 @@ const tt = {
   }
 };
 
-//sets one selected country or clears selection when all is passed
+// 4. Shared helpers used by multiple charts
+
+// Select one country from chart clicks, or clear the selection.
 function setSelectedCountry(countryName) {
   if (!countryName || countryName === "ALL") {
     State.selectedCountries.clear();
@@ -299,6 +305,7 @@ function setSelectedCountry(countryName) {
   updateSelectionInfo();
 }
 
+// Select one crop from chart clicks, or clear the crop selection.
 function setSelectedCrop(cropName) {
   if (!cropName || cropName === "ALL") {
     State.selectedCrops.clear();
@@ -308,11 +315,12 @@ function setSelectedCrop(cropName) {
   syncSelectionState();
 }
 
+// Empty crop selection means select "all crops" across the dashboard.
 function getSelectedCropNames() {
   return State.selectedCrops.size ? [...State.selectedCrops] : [...Data.crops];
 }
 
-//updates charts when state is changed
+// Central redraw path after any filter or chart interaction changes State.
 function updateAll() {
   TempChart.update();
   CropTrendChart.update();
@@ -323,6 +331,7 @@ function updateAll() {
   document.getElementById("yearSlider").value = State.year;
 }
 
+// Connect top-level controls to State and redraw the dashboard on change.
 function bindFilterControls() {
   const yearSlider = document.getElementById("yearSlider");
   const yearLabel = document.getElementById("yearLabel");
@@ -373,7 +382,7 @@ function bindFilterControls() {
   }
 }
 
-//helper for barChart
+// Summarize one country across the selected year window and crop filter.
 function getCountryStat(country, centerYear, windowSize, cropFilter = null) {
   const half  = Math.floor(windowSize / 2);
   const yrs   = d3.range(centerYear - half, centerYear + half + 1);
@@ -419,10 +428,178 @@ function getCountryStat(country, centerYear, windowSize, cropFilter = null) {
   };
 }
 
+// 5. Risk scoring and map helpers
+
+// Pearson correlation: -1 means opposite movement, +1 means same direction.
+function pearsonCorr(a, b) {
+  const n = Math.min(a.length, b.length);
+  if (n < 2) return null;
+  const ma = d3.mean(a), mb = d3.mean(b);
+  let num = 0, da = 0, db = 0;
+  for (let i = 0; i < n; i++) {
+    const xa = a[i] - ma;
+    const xb = b[i] - mb;
+    num += xa * xb;
+    da += xa * xa;
+    db += xb * xb;
+  }
+  if (!da || !db) return null;
+  return num / Math.sqrt(da * db);
+}
+
+// Standard deviation helps measure how unstable yield is over time.
+function stdDev(values) {
+  if (!values.length) return null;
+  const mean = d3.mean(values);
+  return Math.sqrt(d3.mean(values.map(v => (v - mean) * (v - mean))));
+}
+
+// Simple linear slope used to estimate the temperature trend direction.
+function linearSlope(x, y) {
+  const n = Math.min(x.length, y.length);
+  if (n < 2) return null;
+  const mx = d3.mean(x), my = d3.mean(y);
+  let num = 0, den = 0;
+  for (let i = 0; i < n; i++) {
+    num += (x[i] - mx) * (y[i] - my);
+    den += (x[i] - mx) * (x[i] - mx);
+  }
+  return den ? num / den : null;
+}
+
+// Convert a metric to a 0-1 range so different risk factors can combine.
+function normalizeRows(rows, inputKey, outputKey) {
+  const vals = rows.map(r => r[inputKey]).filter(v => v != null && isFinite(v));
+  const min = d3.min(vals);
+  const max = d3.max(vals);
+  const span = (max - min) || 1;
+  rows.forEach(r => {
+    r[outputKey] = r[inputKey] == null ? 0 : (r[inputKey] - min) / span;
+  });
+}
+
+// Precompute risk values for each country/crop pair before drawing the map.
+function computeRiskRows() {
+  const results = [];
+
+  Data.countries.forEach(country => {
+    const byYear = Data.byCountryYearCrop.get(country);
+    if (!byYear) return;
+
+    Data.crops.forEach(crop => {
+      const years = [];
+      const yieldVals = [];
+      const tempVals = [];
+
+      byYear.forEach((cropMap, year) => {
+        const recs = cropMap.get(crop);
+        if (!recs) return;
+        const ys = recs.filter(r => r.element === "Yield").map(r => r.agriValue);
+        const ts = recs.map(r => r.tempChange).filter(v => v != null);
+        if (!ys.length || !ts.length) return;
+        years.push(+year);
+        yieldVals.push(d3.mean(ys));
+        tempVals.push(d3.mean(ts));
+      });
+
+      if (new Set(years).size < 10) return;
+
+      // Higher risk is tied to negative yield-temperature correlation, warming trend, and yield variability.
+      const corr = pearsonCorr(yieldVals, tempVals);
+      const negCorr = corr != null && corr < 0 ? Math.abs(corr) : 0;
+      const tempSlope = linearSlope(years, tempVals);
+      const variability = d3.mean(yieldVals) ? (stdDev(yieldVals) / d3.mean(yieldVals)) : null;
+
+      results.push({
+        country,
+        crop,
+        correlation: corr,
+        negCorr,
+        tempSlope,
+        yieldVariability: variability,
+      });
+    });
+  });
+
+  normalizeRows(results, "negCorr", "normCorr");
+  normalizeRows(results, "tempSlope", "normTempSlope");
+  normalizeRows(results, "yieldVariability", "normVariability");
+
+  results.forEach(r => {
+    r.riskScore = r.normCorr * r.normTempSlope * r.normVariability;
+    r.riskCategory = r.riskScore < 0.25 ? "Low Risk"
+      : r.riskScore < 0.5 ? "Moderate Risk"
+      : r.riskScore < 0.75 ? "High Risk"
+      : "Severe Risk";
+  });
+
+  Data.riskRows = results;
+}
+
+// World-atlas uses numeric country IDs, while the CSV uses ISO3 codes.
+const ISO3_TO_NUM = {
+  "AFG":"4","ALB":"8","DZA":"12","AGO":"24","ARG":"32","ARM":"51","AUS":"36",
+  "AUT":"40","AZE":"31","BGD":"50","BLR":"112","BEL":"56","BLZ":"84","BEN":"204",
+  "BTN":"64","BOL":"68","BIH":"70","BWA":"72","BRA":"76","BGR":"100","BFA":"854",
+  "BDI":"108","CPV":"132","KHM":"116","CMR":"120","CAN":"124","CAF":"140",
+  "TCD":"148","CHL":"152","CHN":"156","COL":"170","COD":"180","COG":"178",
+  "CRI":"188","CIV":"384","HRV":"191","CUB":"192","CYP":"196","CZE":"203",
+  "DNK":"208","DJI":"262","DOM":"214","ECU":"218","EGY":"818","SLV":"222",
+  "ERI":"232","EST":"233","ETH":"231","FJI":"242","FIN":"246","FRA":"250",
+  "GAB":"266","GMB":"270","GEO":"268","DEU":"276","GHA":"288","GRC":"300",
+  "GTM":"320","GIN":"324","GNB":"624","HTI":"332","HND":"340","HUN":"348",
+  "IND":"356","IDN":"360","IRN":"364","IRQ":"368","IRL":"372","ISR":"376",
+  "ITA":"380","JAM":"388","JPN":"392","JOR":"400","KAZ":"398","KEN":"404",
+  "PRK":"408","KOR":"410","KWT":"414","KGZ":"417","LAO":"418","LVA":"428",
+  "LBN":"422","LSO":"426","LBR":"430","LBY":"434","LTU":"440","MDG":"450",
+  "MWI":"454","MYS":"458","MDV":"462","MLI":"466","MRT":"478","MEX":"484",
+  "MDA":"498","MNG":"496","MAR":"504","MOZ":"508","MMR":"104","NAM":"516",
+  "NPL":"524","NLD":"528","NZL":"554","NIC":"558","NER":"562","NGA":"566",
+  "NOR":"578","OMN":"512","PAK":"586","PAN":"591","PNG":"598","PRY":"600",
+  "PER":"604","PHL":"608","POL":"616","PRT":"620","ROU":"642","RUS":"643",
+  "RWA":"646","SAU":"682","SEN":"686","SLE":"694","SOM":"706","ZAF":"710",
+  "ESP":"724","LKA":"144","SDN":"729","SWZ":"748","SWE":"752","CHE":"756",
+  "SYR":"760","TJK":"762","TZA":"834","THA":"764","TGO":"768","TTO":"780",
+  "TUN":"788","TUR":"792","TKM":"795","UGA":"800","UKR":"804","GBR":"826",
+  "USA":"840","URY":"858","UZB":"860","VEN":"862","VNM":"704","YEM":"887",
+  "ZMB":"894","ZWE":"716","MKD":"807","SRB":"688","MNE":"499","SVK":"703",
+  "SVN":"705","LUX":"442","ISL":"352","MLT":"470","GUY":"328","SUR":"740",
+  "PRK":"408","TLS":"626","SSD":"728","COM":"174","MUS":"480","SYC":"690",
+  "MDG":"450","ZAN":"834","TZA":"834","STP":"678","CPV":"132","GNQ":"226",
+  "CAF":"140","ERI":"232","DJI":"262","SOM":"706","ETH":"231","KEN":"404",
+  "UGA":"800","RWA":"646","BDI":"108","TZA":"834","MOZ":"508","MWI":"454",
+  "ZMB":"894","ZWE":"716","BWA":"72","NAM":"516","ZAF":"710","LSO":"426",
+  "SWZ":"748","MDG":"450","COM":"174","MUS":"480","SYC":"690","STP":"678",
+  "CPV":"132","GNQ":"226","GAB":"266","COG":"178","COD":"180","CMR":"120",
+  "NGA":"566","BEN":"204","GHA":"288","CIV":"384","LBR":"430","SLE":"694",
+  "GIN":"324","GNB":"624","SEN":"686","GMB":"270","MLI":"466","NER":"562",
+  "BFA":"854","TGO":"768","MRT":"478","MAR":"504","DZA":"12","TUN":"788",
+  "LBY":"434","EGY":"818","SDN":"729","ETH":"231","ERI":"232","DJI":"262",
+  "SOM":"706","KEN":"404","UGA":"800","TZA":"834","RWA":"646","BDI":"108"
+};
+
+// Convert a world-atlas country ID back to the CSV country name.
+function countryFromTopoId(numId) {
+  const id = String(numId);
+  for (const [iso3, num] of Object.entries(ISO3_TO_NUM)) {
+    if (num !== id) continue;
+    for (const [name, code] of Data.iso3Map.entries()) {
+      if (code === iso3) return name;
+    }
+  }
+  return null;
+}
+
+// 6. Chart modules
+// Each chart follows the same pattern:
+// init() creates the SVG structure once.
+// update() redraws the chart whenever State changes.
+
+// Chart: temperature trends by country.
 const TempChart = (() => {
   let svg, width, height, margin;
 
-  //initialises SVG, dimensions and chart groups for temp chhart
+  // Create the temperature chart SVG layers once.
   function init() {
     const container = document.getElementById("mapPanel");
     width = container.clientWidth - 32;
@@ -441,7 +618,7 @@ const TempChart = (() => {
     console.log("TempChart initialized with width:", width, "height:", height);
   }
 
-  //renders and updates temperature lines, axes and interactions
+  // Draw one temperature trend line per selected country.
   function update() {
     let countries = [];
     if (State.selectedCountries.size) {
@@ -514,12 +691,12 @@ const TempChart = (() => {
 
   return { init, update };
 })();
-// Helper functions for Chart 2 
 
-// Chart 2 - Crop Trend Lines
+// Chart: crop trends by metric.
 const CropTrendChart = (() => {
   let svg, width, height, margin;
 
+  // Create the crop trend SVG layers and legend once.
   function init() {
     const container = document.getElementById("scatterPanel");
     width = container.clientWidth - 32;
@@ -559,7 +736,7 @@ const CropTrendChart = (() => {
           pill.classList.add("active");
         }
         
-        // If everything is unchecked, default back to showing everything
+        // Treat "none" and "all" as the same default view.
         if (State.trendCrops.size === 0 || State.trendCrops.size === Data.crops.length) {
           State.trendCrops.clear();
           wrap.querySelectorAll(".legend-pill").forEach(el => el.classList.add("active"));
@@ -571,6 +748,7 @@ const CropTrendChart = (() => {
     });
   }
 
+  // Redraw crop metric lines for the active filters.
   function update() {
     const selectedCrops = getSelectedCropNames();
     let activeCrops = State.trendCrops.size
@@ -579,7 +757,7 @@ const CropTrendChart = (() => {
     if (!activeCrops.size) activeCrops = new Set(selectedCrops);
     const selectedCountries = State.selectedCountries;
 
-    // Setup labels based on the selection (Yield, Production, Area Harvested)
+    // Labels follow the currently selected agricultural metric.
     const METRIC_UNIT = { "Yield": "kg/ha", "Production": "t", "Area harvested": "ha" };
     const METRIC_LABEL = { "Yield": "Yield (kg/ha)", "Production": "Production (t)", "Area harvested": "Area Harvested (ha)" };
     const metric = State.metric;
@@ -589,14 +767,14 @@ const CropTrendChart = (() => {
     if (titleEl) titleEl.textContent = `Crop ${METRIC_LABEL[metric] || metric} Trend Over Time`;
     svg.select(".y-label-trend").text(unit);
 
-    // Filter the raw data to see only what we need for the current view
+    // Keep only rows needed for the current metric/crop/country filters.
     const rows = Data.raw.filter(d =>
       d.element === metric &&
       activeCrops.has(d.crop) &&
       (selectedCountries.size === 0 || selectedCountries.has(d.country))
     );
 
-    // Calculate Mean value for each crop-year
+    // Each line uses the mean metric value for a crop in each year.
     const grouped = d3.rollups(
       rows,
       v => d3.mean(v, d => d.agriValue),
@@ -639,192 +817,11 @@ const CropTrendChart = (() => {
   return { init, update };
 })();
 
-// loads data and initializes all controls and initial chart render
-async function main() {
-  try {
-    await loadData();
-    computeRiskRows();
-
-    const world = await d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json");
-	updateStatBadges();
-	initCountryList();
-	bindDropdownToggles();
-  bindFilterControls();
-	initCropList();
-	TempChart.init();
-  CropTrendChart.init();
-  RiskMapChart.init(world);
-  BarChart.init();
-  HeatmapChart.init();
-  updateSelectionInfo();
-	TempChart.update();
-  CropTrendChart.update();
-    const testCountry = Data.countries[0];
-    const testYear = 2010;
-    const yearData = Data.byCountryYear.get(testCountry)?.get(testYear);
-    updateAll();
-    bindControls();
-    console.log(`Test Result for ${testCountry} in ${testYear}:`, yearData);
-  } catch (error) {
-    console.error("Data loading failed: Check if the CSV filename is correct:", error);
-  }
-}
-
-function pearsonCorr(a, b) {
-  const n = Math.min(a.length, b.length);
-  if (n < 2) return null;
-  const ma = d3.mean(a), mb = d3.mean(b);
-  let num = 0, da = 0, db = 0;
-  for (let i = 0; i < n; i++) {
-    const xa = a[i] - ma;
-    const xb = b[i] - mb;
-    num += xa * xb;
-    da += xa * xa;
-    db += xb * xb;
-  }
-  if (!da || !db) return null;
-  return num / Math.sqrt(da * db);
-}
-
-function stdDev(values) {
-  if (!values.length) return null;
-  const mean = d3.mean(values);
-  return Math.sqrt(d3.mean(values.map(v => (v - mean) * (v - mean))));
-}
-
-function linearSlope(x, y) {
-  const n = Math.min(x.length, y.length);
-  if (n < 2) return null;
-  const mx = d3.mean(x), my = d3.mean(y);
-  let num = 0, den = 0;
-  for (let i = 0; i < n; i++) {
-    num += (x[i] - mx) * (y[i] - my);
-    den += (x[i] - mx) * (x[i] - mx);
-  }
-  return den ? num / den : null;
-}
-
-function normalizeRows(rows, inputKey, outputKey) {
-  const vals = rows.map(r => r[inputKey]).filter(v => v != null && isFinite(v));
-  const min = d3.min(vals);
-  const max = d3.max(vals);
-  const span = (max - min) || 1;
-  rows.forEach(r => {
-    r[outputKey] = r[inputKey] == null ? 0 : (r[inputKey] - min) / span;
-  });
-}
-
-function computeRiskRows() {
-  const results = [];
-
-  Data.countries.forEach(country => {
-    const byYear = Data.byCountryYearCrop.get(country);
-    if (!byYear) return;
-
-    Data.crops.forEach(crop => {
-      const years = [];
-      const yieldVals = [];
-      const tempVals = [];
-
-      byYear.forEach((cropMap, year) => {
-        const recs = cropMap.get(crop);
-        if (!recs) return;
-        const ys = recs.filter(r => r.element === "Yield").map(r => r.agriValue);
-        const ts = recs.map(r => r.tempChange).filter(v => v != null);
-        if (!ys.length || !ts.length) return;
-        years.push(+year);
-        yieldVals.push(d3.mean(ys));
-        tempVals.push(d3.mean(ts));
-      });
-
-      if (new Set(years).size < 10) return;
-
-      const corr = pearsonCorr(yieldVals, tempVals);
-      const negCorr = corr != null && corr < 0 ? Math.abs(corr) : 0;
-      const tempSlope = linearSlope(years, tempVals);
-      const variability = d3.mean(yieldVals) ? (stdDev(yieldVals) / d3.mean(yieldVals)) : null;
-
-      results.push({
-        country,
-        crop,
-        correlation: corr,
-        negCorr,
-        tempSlope,
-        yieldVariability: variability,
-      });
-    });
-  });
-
-  normalizeRows(results, "negCorr", "normCorr");
-  normalizeRows(results, "tempSlope", "normTempSlope");
-  normalizeRows(results, "yieldVariability", "normVariability");
-
-  results.forEach(r => {
-    r.riskScore = r.normCorr * r.normTempSlope * r.normVariability;
-    r.riskCategory = r.riskScore < 0.25 ? "Low Risk"
-      : r.riskScore < 0.5 ? "Moderate Risk"
-      : r.riskScore < 0.75 ? "High Risk"
-      : "Severe Risk";
-  });
-
-  Data.riskRows = results;
-}
-
-const ISO3_TO_NUM = {
-  "AFG":"4","ALB":"8","DZA":"12","AGO":"24","ARG":"32","ARM":"51","AUS":"36",
-  "AUT":"40","AZE":"31","BGD":"50","BLR":"112","BEL":"56","BLZ":"84","BEN":"204",
-  "BTN":"64","BOL":"68","BIH":"70","BWA":"72","BRA":"76","BGR":"100","BFA":"854",
-  "BDI":"108","CPV":"132","KHM":"116","CMR":"120","CAN":"124","CAF":"140",
-  "TCD":"148","CHL":"152","CHN":"156","COL":"170","COD":"180","COG":"178",
-  "CRI":"188","CIV":"384","HRV":"191","CUB":"192","CYP":"196","CZE":"203",
-  "DNK":"208","DJI":"262","DOM":"214","ECU":"218","EGY":"818","SLV":"222",
-  "ERI":"232","EST":"233","ETH":"231","FJI":"242","FIN":"246","FRA":"250",
-  "GAB":"266","GMB":"270","GEO":"268","DEU":"276","GHA":"288","GRC":"300",
-  "GTM":"320","GIN":"324","GNB":"624","HTI":"332","HND":"340","HUN":"348",
-  "IND":"356","IDN":"360","IRN":"364","IRQ":"368","IRL":"372","ISR":"376",
-  "ITA":"380","JAM":"388","JPN":"392","JOR":"400","KAZ":"398","KEN":"404",
-  "PRK":"408","KOR":"410","KWT":"414","KGZ":"417","LAO":"418","LVA":"428",
-  "LBN":"422","LSO":"426","LBR":"430","LBY":"434","LTU":"440","MDG":"450",
-  "MWI":"454","MYS":"458","MDV":"462","MLI":"466","MRT":"478","MEX":"484",
-  "MDA":"498","MNG":"496","MAR":"504","MOZ":"508","MMR":"104","NAM":"516",
-  "NPL":"524","NLD":"528","NZL":"554","NIC":"558","NER":"562","NGA":"566",
-  "NOR":"578","OMN":"512","PAK":"586","PAN":"591","PNG":"598","PRY":"600",
-  "PER":"604","PHL":"608","POL":"616","PRT":"620","ROU":"642","RUS":"643",
-  "RWA":"646","SAU":"682","SEN":"686","SLE":"694","SOM":"706","ZAF":"710",
-  "ESP":"724","LKA":"144","SDN":"729","SWZ":"748","SWE":"752","CHE":"756",
-  "SYR":"760","TJK":"762","TZA":"834","THA":"764","TGO":"768","TTO":"780",
-  "TUN":"788","TUR":"792","TKM":"795","UGA":"800","UKR":"804","GBR":"826",
-  "USA":"840","URY":"858","UZB":"860","VEN":"862","VNM":"704","YEM":"887",
-  "ZMB":"894","ZWE":"716","MKD":"807","SRB":"688","MNE":"499","SVK":"703",
-  "SVN":"705","LUX":"442","ISL":"352","MLT":"470","GUY":"328","SUR":"740",
-  "PRK":"408","TLS":"626","SSD":"728","COM":"174","MUS":"480","SYC":"690",
-  "MDG":"450","ZAN":"834","TZA":"834","STP":"678","CPV":"132","GNQ":"226",
-  "CAF":"140","ERI":"232","DJI":"262","SOM":"706","ETH":"231","KEN":"404",
-  "UGA":"800","RWA":"646","BDI":"108","TZA":"834","MOZ":"508","MWI":"454",
-  "ZMB":"894","ZWE":"716","BWA":"72","NAM":"516","ZAF":"710","LSO":"426",
-  "SWZ":"748","MDG":"450","COM":"174","MUS":"480","SYC":"690","STP":"678",
-  "CPV":"132","GNQ":"226","GAB":"266","COG":"178","COD":"180","CMR":"120",
-  "NGA":"566","BEN":"204","GHA":"288","CIV":"384","LBR":"430","SLE":"694",
-  "GIN":"324","GNB":"624","SEN":"686","GMB":"270","MLI":"466","NER":"562",
-  "BFA":"854","TGO":"768","MRT":"478","MAR":"504","DZA":"12","TUN":"788",
-  "LBY":"434","EGY":"818","SDN":"729","ETH":"231","ERI":"232","DJI":"262",
-  "SOM":"706","KEN":"404","UGA":"800","TZA":"834","RWA":"646","BDI":"108"
-};
-
-function countryFromTopoId(numId) {
-  const id = String(numId);
-  for (const [iso3, num] of Object.entries(ISO3_TO_NUM)) {
-    if (num !== id) continue;
-    for (const [name, code] of Data.iso3Map.entries()) {
-      if (code === iso3) return name;
-    }
-  }
-  return null;
-}
-
+// Chart: Risk score choropleth map.
 const RiskMapChart = (() => {
   let svg, g, path, projection, width, height, features, color, zoom;
 
+  // Set up the map projection, country paths, click/hover, and zoom.
   function init(world) {
     const container = document.getElementById("linePanel");
     width = container.clientWidth - 32;
@@ -858,7 +855,7 @@ const RiskMapChart = (() => {
      .on("wheel.zoom", null)   
      .call(zoom);
 
-  // Add reset view button functionality
+  // Reset zoom/pan without changing dashboard filters.
   const resetViewBtn = document.getElementById("resetViewBtn");
   if (resetViewBtn) {
     resetViewBtn.addEventListener("click", () => {
@@ -867,6 +864,7 @@ const RiskMapChart = (() => {
   }
   }
 
+  // Keep the highest-risk crop row for each country.
   function riskByCountry() {
     const rows = State.selectedCrops.size === 0
       ? Data.riskRows
@@ -880,6 +878,7 @@ const RiskMapChart = (() => {
     return best;
   }
 
+  // Recolor countries and dim non-selected countries.
   function update() {
     const byCountry = riskByCountry();
 
@@ -896,6 +895,7 @@ const RiskMapChart = (() => {
       });
   }
 
+  // Tooltip shows the top risk row for the hovered country.
   function onMove(evt, d) {
     const country = countryFromTopoId(d.id);
     if (!country) return tt.hide();
@@ -917,6 +917,7 @@ const RiskMapChart = (() => {
     `);
   }
 
+  // Clicking a country toggles the country filter.
   function onClick(evt, d) {
     const country = countryFromTopoId(d.id);
     if (!country) return;
@@ -931,22 +932,17 @@ const RiskMapChart = (() => {
   return { init, update };
 })();
 
-/* =====================================================================
-   CHART 4 – HORIZONTAL BAR CHART
-   Supports ranking by: Temperature Anomaly, Yield, Production, Area Harvested.
-   Supports direction: highest (top) or lowest (bottom) N countries.
-   Automatically mirrors the global metric selector when it changes.
-   ===================================================================== */
-   const BarChart = (() => {
+// Chart: Bar chart country ranking by a selected metric.
+const BarChart = (() => {
   let svg, width, height, margin;
 
-  // ---- Local bar chart state ----
+  // Local state for the bar chart's own controls.
   // barMetric: "temp" | "Yield" | "Production" | "Area harvested"
   // barRank  : "top"  | "bottom"
   // barN     : number of countries shown
   const local = { barMetric: "temp", barRank: "top", barN: 15 };
 
-  // Metric metadata: label shown on axis and tooltip
+  // Labels, formatters, and colors for each ranking metric.
   const METRIC_META = {
     temp:             { label: "Mean Temp. Anomaly (°C)",  fmt: v => v.toFixed(2)+"°C",       colorPalette: ["#2255aa","#e87030","#c02020"] },
     "Yield":          { label: "Avg Yield (kg/ha)",         fmt: v => d3.format(",.0f")(v),    colorPalette: ["#bde0a8","#38a830","#1a5a10"] },
@@ -971,28 +967,20 @@ const RiskMapChart = (() => {
       .attr("y",height - 4)
       .attr("text-anchor","middle").attr("fill","#4a6080").attr("font-size","10px");
 
-    // Wire up inline controls
     bindBarControls();
   }
-  /**
-   * Bind the three inline bar-chart controls:
-   * - #barMetricSel : what to rank by
-   * - #rankToggle buttons : top / bottom
-   * - #barNSel : how many countries
-   */
+  // Bind the metric, rank direction, and top-N controls inside the bar panel.
   function bindBarControls() {
-    // Metric selector — user explicitly choosing locks it from global sync
+    // A manual bar-metric choice stops the global metric dropdown from overriding it.
     document.getElementById("barMetricSel").addEventListener("change", function() {
       local.barMetric    = this.value;
-      local.userOverride = true;  // prevent global metric from overriding this choice
+      local.userOverride = true;
       update();
     });
 
-    // Rank direction toggle
     document.querySelectorAll(".rank-btn").forEach(btn => {
       btn.addEventListener("click", function() {
         local.barRank = this.dataset.rank;
-        // Update active styling
         document.querySelectorAll(".rank-btn").forEach(b => {
           const isActive = b.dataset.rank === local.barRank;
           b.style.background = isActive ? "#1a3a6b" : "#f5f7fa";
@@ -1003,7 +991,6 @@ const RiskMapChart = (() => {
       });
     });
 
-    // N selector
     document.getElementById("barNSel").addEventListener("change", function() {
       local.barN = +this.value;
       update();
@@ -1016,7 +1003,7 @@ const RiskMapChart = (() => {
       const stat = getCountryStat(country, State.year, State.window, State.selectedCrops);
       if (!stat) return;
 
-      // Pick the value for the selected bar metric
+      // Pick the value for the selected bar metric.
       let value;
       if      (local.barMetric === "temp")             value = stat.avgTemp;
       else if (local.barMetric === "Yield")            value = stat.avgYield;
@@ -1027,12 +1014,13 @@ const RiskMapChart = (() => {
       rows.push({ country, value, temp: stat.avgTemp });
     });
 
-    // Sort direction
+    // Sort and trim to the requested number of countries.
     rows.sort((a, b) => local.barRank === "top" ? b.value - a.value : a.value - b.value);
     return rows.slice(0, local.barN);
   }
 
-    function update() {
+  // Rebuild the ranking and redraw bars for the selected metric.
+  function update() {
     const data = buildBarData();
     if (!data.length) return;
 
@@ -1040,7 +1028,7 @@ const RiskMapChart = (() => {
     const innerW = width - margin.left - margin.right;
     const innerH = height - margin.top - margin.bottom;
 
-    // X scale — always starts at 0 for bar chart readability
+    // Bottom rankings can include very small values, so start near the minimum.
     const xMax = d3.max(data, d => d.value);
     const xMin = local.barRank === "bottom" ? d3.min(data, d => d.value) * 0.92 : 0;
     const xScale = d3.scaleLinear()
@@ -1052,12 +1040,12 @@ const RiskMapChart = (() => {
       .range([margin.top, margin.top + innerH])
       .padding(0.22);
 
-    // Colour scale — driven by metric palette
+    // Color intensity follows the selected ranking value.
     const cScale = d3.scaleSequential()
       .domain([d3.min(data, d => d.value), xMax])
       .interpolator(d3.interpolateRgbBasis(meta.colorPalette));
 
-    // Axes
+    // Axes and labels.
     const xFmt = local.barMetric === "temp"
       ? v => v.toFixed(1)+"°"
       : d3.format(".2s");
@@ -1072,14 +1060,13 @@ const RiskMapChart = (() => {
     const rankDir = local.barRank === "top" ? `▲ Top ${local.barN}` : `▼ Bottom ${local.barN}`;
     svg.select(".bar-x-lbl").text(`${rankDir} countries — ${meta.label}`);
 
-    // ---- Update panel title ----
+    // Match the panel title to the active ranking and crop filter.
     const cropStr = State.selectedCrops.size === 0 ? "All Crops"
       : State.selectedCrops.size === 1 ? [...State.selectedCrops][0]
       : `${State.selectedCrops.size} Crops`;
     document.getElementById("barPanelTitle").textContent =
       `Country Rankings — ${meta.label} · ${cropStr} · ${State.year}`;
 
-      // ---- Bars ----
     const barSel = svg.selectAll(".bar-rect").data(data, d => d.country);
     barSel.join(
       enter => enter.append("rect")
@@ -1114,7 +1101,7 @@ const RiskMapChart = (() => {
       exit => exit.transition().duration(300).attr("width",0).remove()
     );
 
-    // ---- Value labels ----
+    // Numeric value labels at the end of each bar.
     const lblSel = svg.selectAll(".bar-val-lbl").data(data, d => d.country);
     lblSel.join(
       enter => enter.append("text")
@@ -1132,16 +1119,13 @@ const RiskMapChart = (() => {
       exit => exit.remove()
     );
 
-    // ---- Highlight selected country ----
+    // Highlight the selected country if another chart selected one.
     svg.selectAll(".bar-rect")
       .attr("stroke", d => State.selectedCountries.size && State.selectedCountries.has(d.country) ? "#c02020" : "none")
       .attr("stroke-width", 2);
   }
 
-  /**
-   * Expose setMetric so external controls (global metric dropdown)
-   * can sync the bar chart metric 
-   */
+  // Let the global metric dropdown sync this chart until the user overrides it.
   function setMetric(metric) {
     if (!local.userOverride) {
       local.barMetric = metric;
@@ -1154,13 +1138,13 @@ const RiskMapChart = (() => {
     return { init, update, setMetric };
 })();
 
-//Heatmap Code
-
+// Chart: country-by-crop correlation heat map.
 const HeatmapChart = (() => {
   let svg, width, height, margin;
   let xScale, yScale, colorScale;
   const MAX_COUNTRIES = 24;
 
+  // Create fixed SVG layers for axes and heat map cells.
   function init() {
     const container = document.getElementById("heatPanel");
     width  = container.clientWidth - 32;
@@ -1178,6 +1162,7 @@ const HeatmapChart = (() => {
 
   }
 
+  // Build one correlation value for each visible country/crop pair.
   function buildHeatData() {
     const metric = State.metric;
     const countries = State.selectedCountries.size
@@ -1206,6 +1191,7 @@ const HeatmapChart = (() => {
           metricVals.push(metric === "Production" || metric === "Area harvested" ? d3.sum(aVals) : d3.mean(aVals));
         });
 
+        // Require enough years so sparse country/crop pairs do not look precise.
         const corr = yearsSeen.size >= 10 ? pearsonCorr(tempVals, metricVals) : null;
         rows.push({ country, crop, corr });
       });
@@ -1214,6 +1200,7 @@ const HeatmapChart = (() => {
     return { rows, countries, crops };
   }
 
+  // Redraw axes and cells using the current filters and selected metric.
   function update() {
     const { rows, countries, crops } = buildHeatData();
     if (!rows.length) return;
@@ -1241,6 +1228,7 @@ const HeatmapChart = (() => {
         .attr("font-weight", d => State.selectedCountries.size && State.selectedCountries.has(d) ? "700" : "400");
     svg.select(".y-axis-heat .domain").remove();
 
+    // Use country + crop as a unique ID for each heat map cell.
     const cellSel = svg.select(".heat-cells").selectAll(".heat-cell").data(rows, d => d.country + "|" + d.crop);
     cellSel.join(
       enter => enter.append("rect")
@@ -1267,6 +1255,7 @@ const HeatmapChart = (() => {
     );
   }
 
+  // Cell hover explains the exact correlation value.
   function onCellMouseMove(evt, d) {
     tt.show(evt, `
       <div class="tt-title">${d.country} — ${d.crop}</div>
@@ -1275,6 +1264,7 @@ const HeatmapChart = (() => {
     tt.move(evt);
   }
 
+  // Clicking a cell filters the rest of the dashboard to that country/crop.
   function onCellClick(evt, d) {
     setSelectedCountry(d.country);
     setSelectedCrop(d.crop);
@@ -1283,5 +1273,45 @@ const HeatmapChart = (() => {
 
   return { init, update };
 })();
+
+// 7. Startup flow
+
+// Load data, create controls/charts, and trigger the first render.
+async function main() {
+  try {
+    // Load the data first, because controls and charts depend on Data.
+    await loadData();
+    computeRiskRows();
+
+    const world = await d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json");
+
+    // Build the filters and connect their event listeners.
+    updateStatBadges();
+    initCountryList();
+    initCropList();
+    bindDropdownToggles();
+    bindFilterControls();
+
+    // Create chart SVG layers before calling updateAll().
+    TempChart.init();
+    CropTrendChart.init();
+    RiskMapChart.init(world);
+    BarChart.init();
+    HeatmapChart.init();
+
+    // Sync text labels, then draw the initial dashboard.
+    updateSelectionInfo();
+    TempChart.update();
+    CropTrendChart.update();
+    const testCountry = Data.countries[0];
+    const testYear = 2010;
+    const yearData = Data.byCountryYear.get(testCountry)?.get(testYear);
+    updateAll();
+    bindControls();
+    console.log(`Test Result for ${testCountry} in ${testYear}:`, yearData);
+  } catch (error) {
+    console.error("Data loading failed: Check if the CSV filename is correct:", error);
+  }
+}
 
 main();
