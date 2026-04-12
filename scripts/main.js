@@ -34,7 +34,6 @@ const State = {
   selectedCrop: "ALL",
   metric: "Yield",
   year: 2010,
-  window: 5,
   trendCrops: new Set()
 };
 
@@ -345,6 +344,13 @@ function getSelectedCropNames() {
   return State.selectedCrops.size ? [...State.selectedCrops] : [...Data.crops];
 }
 
+// Use the selected year as the end of the visible cumulative range for line charts.
+function getSelectedYearRange() {
+  const minYear = Data.years[0];
+  const maxYear = Math.min(State.year, Data.years[Data.years.length - 1]);
+  return [minYear, maxYear];
+}
+
 function updateStoryCard() {
   const cardEl = document.getElementById("dynamic-story-text");
   if (!cardEl) return; // Failsafe if the HTML element isn't added yet
@@ -380,7 +386,6 @@ function updateAll() {
 function bindFilterControls() {
   const yearSlider = document.getElementById("yearSlider");
   const yearLabel = document.getElementById("yearLabel");
-  const windowSel = document.getElementById("windowSel");
   const resetBtn = document.getElementById("resetBtn");
 
   const metricSel = document.getElementById("metricSel");
@@ -397,14 +402,6 @@ function bindFilterControls() {
     yearSlider.addEventListener("input", function() {
       State.year = +this.value;
       if (yearLabel) yearLabel.textContent = this.value;
-      updateAll();
-    });
-  }
-
-  if (windowSel) {
-    State.window = +windowSel.value;
-    windowSel.addEventListener("change", function() {
-      State.window = +this.value;
       updateAll();
     });
   }
@@ -659,7 +656,6 @@ const TempChart = (() => {
     svg.selectAll("*").remove();
     svg.append("g").attr("class", "axis x-axis-temp").attr("transform", `translate(0,${height - margin.bottom})`);
     svg.append("g").attr("class", "axis y-axis-temp").attr("transform", `translate(${margin.left},0)`);
-    svg.append("g").attr("class", "temp-lines");
     svg.append("g").attr("class", "event-bands");
     svg.append("g").attr("class", "temp-lines");
     console.log("TempChart initialized with width:", width, "height:", height);
@@ -667,6 +663,7 @@ const TempChart = (() => {
 
   // Draw one temperature trend line per selected country.
   function update() {
+    const [rangeStart, rangeEnd] = getSelectedYearRange();
     let countries = [];
     if (State.selectedCountries.size) {
       countries = [...State.selectedCountries];
@@ -682,19 +679,8 @@ const TempChart = (() => {
       });
       vals.sort((a, b) => a.year - b.year);
 
-      if (State.window > 1 && vals.length > 1) {
-        const half = Math.floor(State.window / 2);
-        const smoothed = vals.map((point, index) => {
-          const start = Math.max(0, index - half);
-          const end = Math.min(vals.length - 1, index + half);
-          const segment = vals.slice(start, end + 1);
-          return { year: point.year, temp: d3.mean(segment, d => d.temp) };
-        });
-        return { country, vals: smoothed };
-      }
-
-      return { country, vals };
-    }).filter(s => s.vals.length > 1);
+      return { country, vals: vals.filter(d => d.year >= rangeStart && d.year <= rangeEnd) };
+    }).filter(s => s.vals.length > 0);
 
     console.log("TempChart update - series count:", series.length, "data points sample:", series.slice(0, 3));
     if (!series.length) {
@@ -703,12 +689,14 @@ const TempChart = (() => {
     }
 
     const allPoints = series.flatMap(s => s.vals);
-    const x = d3.scaleLinear().domain(d3.extent(allPoints, d => d.year)).range([margin.left, width - margin.right]);
+    const xDomain = rangeStart === rangeEnd ? [rangeStart - 1, rangeEnd + 1] : [rangeStart, rangeEnd];
+    const x = d3.scaleLinear().domain(xDomain).range([margin.left, width - margin.right]);
     const y = d3.scaleLinear().domain(d3.extent(allPoints, d => d.temp)).nice().range([height - margin.bottom, margin.top]);
 
     const activeEvents = HISTORICAL_EVENTS.filter(e => {
       // Temp chart only cares about the country, NOT the crops
-      return !e.country || (State.selectedCountries.size > 0 && State.selectedCountries.has(e.country));
+      const inRange = e.start <= rangeEnd && e.end >= rangeStart;
+      return inRange && (!e.country || (State.selectedCountries.size > 0 && State.selectedCountries.has(e.country)));
     });
 
     const bandSel = svg.select(".event-bands").selectAll(".event-band").data(activeEvents, d => d.title);
@@ -738,12 +726,13 @@ const TempChart = (() => {
         .attr("width", d => d.start === d.end ? 12 : Math.max(xScale(d.end) - xScale(d.start), 2));
     }
 
-    svg.select(".x-axis-temp").call(d3.axisBottom(x).ticks(8).tickFormat(d3.format("d")));
+    const tickCount = rangeStart === rangeEnd ? 3 : Math.min(8, Math.max(2, rangeEnd - rangeStart + 1));
+    svg.select(".x-axis-temp").call(d3.axisBottom(x).ticks(tickCount).tickFormat(d3.format("d")));
     svg.select(".y-axis-temp").call(d3.axisLeft(y).ticks(6));
 
     const line = d3.line().x(d => x(d.year)).y(d => y(d.temp)).curve(d3.curveMonotoneX);
 
-    svg.select(".temp-lines").selectAll(".temp-line").data(series, d => d.country).join(
+    svg.select(".temp-lines").selectAll(".temp-line").data(series.filter(s => s.vals.length > 1), d => d.country).join(
       enter => enter.append("path")
         .attr("class", "temp-line")
         .attr("fill", "none")
@@ -785,7 +774,6 @@ const CropTrendChart = (() => {
     svg = d3.select("#trendSvg").attr("width", width).attr("height", height);
     svg.append("g").attr("class", "axis x-axis-trend").attr("transform", `translate(0,${height - margin.bottom})`);
     svg.append("g").attr("class", "axis y-axis-trend").attr("transform", `translate(${margin.left},0)`);
-    svg.append("g").attr("class", "trend-lines");
     svg.append("g").attr("class", "event-bands");
     svg.append("g").attr("class", "trend-lines");
     svg.append("text")
@@ -831,6 +819,7 @@ const CropTrendChart = (() => {
 
   // Redraw crop metric lines for the active filters.
   function update() {
+    const [rangeStart, rangeEnd] = getSelectedYearRange();
     const selectedCrops = getSelectedCropNames();
     let activeCrops = State.trendCrops.size
       ? new Set(selectedCrops.filter(crop => State.trendCrops.has(crop)))
@@ -845,12 +834,15 @@ const CropTrendChart = (() => {
     const unit = METRIC_UNIT[metric] || metric;
 
     const titleEl = document.getElementById("trendTitle");
-    if (titleEl) titleEl.textContent = `Crop ${METRIC_LABEL[metric] || metric} Trend Over Time`;
+    const visibleYears = rangeStart === rangeEnd ? `${rangeStart}` : `${rangeStart}-${rangeEnd}`;
+    if (titleEl) titleEl.textContent = `Crop ${METRIC_LABEL[metric] || metric} Trend (${visibleYears})`;
     svg.select(".y-label-trend").text(unit);
 
     // Keep only rows needed for the current metric/crop/country filters.
     const rows = Data.raw.filter(d =>
       d.element === metric &&
+      d.year >= rangeStart &&
+      d.year <= rangeEnd &&
       activeCrops.has(d.crop) &&
       (selectedCountries.size === 0 || selectedCountries.has(d.country))
     );
@@ -864,29 +856,36 @@ const CropTrendChart = (() => {
     ).map(([crop, yearVals]) => ({
       crop,
       vals: yearVals.map(([year, val]) => ({ year: +year, val })).sort((a, b) => a.year - b.year)
-    })).filter(s => s.vals.length > 1);
+    })).filter(s => s.vals.length > 0);
 
-    if (!grouped.length) return;
+    if (!grouped.length) {
+      svg.select(".trend-lines").selectAll(".crop-line").remove();
+      svg.select(".event-bands").selectAll(".event-band").remove();
+      return;
+    }
 
     const allPoints = grouped.flatMap(s => s.vals);
-    const x = d3.scaleLinear().domain(d3.extent(allPoints, d => d.year)).range([margin.left, width - margin.right]);
+    const xDomain = rangeStart === rangeEnd ? [rangeStart - 1, rangeEnd + 1] : [rangeStart, rangeEnd];
+    const x = d3.scaleLinear().domain(xDomain).range([margin.left, width - margin.right]);
     const y = d3.scaleLinear().domain([0, d3.max(allPoints, d => d.val) * 1.05]).nice().range([height - margin.bottom, margin.top]);
 
-    svg.select(".x-axis-trend").call(d3.axisBottom(x).ticks(8).tickFormat(d3.format("d")));
+    const tickCount = rangeStart === rangeEnd ? 3 : Math.min(8, Math.max(2, rangeEnd - rangeStart + 1));
+    svg.select(".x-axis-trend").call(d3.axisBottom(x).ticks(tickCount).tickFormat(d3.format("d")));
     svg.select(".y-axis-trend").call(d3.axisLeft(y).ticks(6).tickFormat(d3.format(",.0f")));
     
     // If the event has a country, it must match the selected countries. If it has crops, at least one must match the current crops on the chart. If it has neither, it's always active.
     const activeEvents = HISTORICAL_EVENTS.filter(e => {
+      const inRange = e.start <= rangeEnd && e.end >= rangeStart;
       const countryMatch = !e.country || (State.selectedCountries.size > 0 && State.selectedCountries.has(e.country));
       let cropMatch = true; 
       if (e.crops && e.crops.length > 0) {
         cropMatch = e.crops.some(c => activeCrops.has(c)); 
       }
 
-      return countryMatch && cropMatch; 
+      return inRange && countryMatch && cropMatch; 
     });
 
-    const bandSel = svg.select(".event-bands").selectAll(".event-band").data(HISTORICAL_EVENTS);
+    const bandSel = svg.select(".event-bands").selectAll(".event-band").data(activeEvents, d => d.title);
     bandSel.join(
       enter => enter.append("rect")
         .attr("class", "event-band")
@@ -914,7 +913,7 @@ const CropTrendChart = (() => {
 
     const line = d3.line().x(d => x(d.year)).y(d => y(d.val)).curve(d3.curveMonotoneX);
 
-    svg.select(".trend-lines").selectAll(".crop-line").data(grouped, d => d.crop).join(
+    svg.select(".trend-lines").selectAll(".crop-line").data(grouped.filter(s => s.vals.length > 1), d => d.crop).join(
       enter => enter.append("path")
         .attr("class", "crop-line")
         .attr("fill", "none")
@@ -927,6 +926,7 @@ const CropTrendChart = (() => {
         .on("mouseleave", () => tt.hide()),
       update => update
         .attr("stroke", d => CROP_COLOURS[d.crop] || "#8aabcc")
+        .attr("stroke-width", 2)
         .attr("d", d => line(d.vals)),
       exit => exit.remove()
     );
@@ -1118,7 +1118,7 @@ const BarChart = (() => {
   function buildBarData() {
     const rows = [];
     Data.countries.forEach(country => {
-      const stat = getCountryStat(country, State.year, State.window, State.selectedCrops);
+      const stat = getCountryStat(country, State.year, 1, State.selectedCrops);
       if (!stat) return;
 
       // Pick the value for the selected bar metric.
