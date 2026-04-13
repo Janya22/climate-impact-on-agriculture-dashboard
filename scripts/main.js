@@ -151,6 +151,41 @@ function updateSelectionInfo() {
 
   d3.select("#selInfo").text(`Showing ${cLabel} and ${pLabel}`);
 }
+
+function syncSelectionState() {
+  document.querySelectorAll("#countrySel-list .multisel-item").forEach(item => {
+    const country = item.dataset.value;
+    const selected = State.selectedCountries.has(country);
+    item.classList.toggle("selected", selected);
+    const checkbox = item.querySelector("input[type='checkbox']");
+    if (checkbox) checkbox.checked = selected;
+  });
+
+  document.querySelectorAll("#cropSel-list .multisel-item").forEach(item => {
+    const crop = item.dataset.value;
+    const selected = State.selectedCrops.has(crop);
+    item.classList.toggle("selected", selected);
+    const checkbox = item.querySelector("input[type='checkbox']");
+    if (checkbox) checkbox.checked = selected;
+  });
+
+  const countryCount = State.selectedCountries.size;
+  const cropCount = State.selectedCrops.size;
+  const badge = document.getElementById("stat-selected");
+  if (badge) {
+    badge.textContent = countryCount === 0 ? "All Countries"
+      : countryCount === 1 ? [...State.selectedCountries][0]
+      : `${countryCount} Countries`;
+  }
+
+  const countryPh = document.querySelector("#countrySel-pills .multisel-placeholder");
+  if (countryPh) countryPh.textContent = countryCount > 0 ? `${countryCount} selected` : "All countries";
+
+  const cropPh = document.querySelector("#cropSel-pills .multisel-placeholder");
+  if (cropPh) cropPh.textContent = cropCount > 0 ? `${cropCount} crops selected` : "All crops";
+
+  updateSelectionInfo();
+}
 // Build the country checkbox list.
 function initCountryList() {
   const countryList = d3.select("#countrySel-list");
@@ -210,21 +245,7 @@ function updateCountrySelection(country, isChecked) {
   if (isChecked) State.selectedCountries.add(country);
   else State.selectedCountries.delete(country);
 
-  const badge = document.getElementById("stat-selected");
-  const count = State.selectedCountries.size;
-  
-  if (badge) {
-    badge.textContent = count === 0 ? "All Countries" : 
-                        count === 1 ? Array.from(State.selectedCountries)[0] : 
-                        `${count} Countries`;
-  }
-
-  const placeholder = document.querySelector("#countrySel-pills .multisel-placeholder");
-  if (placeholder) {
-    placeholder.textContent = count > 0 ? `${count} selected` : "All countries";
-  }
-
-  updateSelectionInfo();
+  syncSelectionState();
 
   if (typeof updateAll === "function") updateAll();
 
@@ -266,14 +287,7 @@ function updateCropSelection(crop, isChecked) {
     State.selectedCrops.delete(crop);
   }
 
-  const count = State.selectedCrops.size;
-  const placeholder = document.querySelector("#cropSel-pills .multisel-placeholder");
-  
-  if (placeholder) {
-    placeholder.textContent = count > 0 ? `${count} crops selected` : "All crops";
-  }
-
-  updateSelectionInfo();
+  syncSelectionState();
 
   if (typeof updateAll === "function") updateAll();
   
@@ -329,7 +343,12 @@ function setSelectedCountry(countryName) {
     State.selectedCountries = new Set([countryName]);
   }
 
-  updateSelectionInfo();
+  syncSelectionState();
+}
+
+function setSelectedCountries(countries) {
+  State.selectedCountries = new Set(countries);
+  syncSelectionState();
 }
 
 // Select one crop from chart clicks, or clear the crop selection.
@@ -512,15 +531,7 @@ function bindFilterControls() {
     resetBtn.addEventListener("click", () => {
       State.selectedCountries.clear();
       State.selectedCrops.clear();
-      document.querySelectorAll("#countrySel-list input[type='checkbox']").forEach(cb => cb.checked = false);
-      document.querySelectorAll("#cropSel-list input[type='checkbox']").forEach(cb => cb.checked = false);
-      const badge = document.getElementById("stat-selected");
-      if (badge) badge.textContent = "All Countries";
-      const countryPh = document.querySelector("#countrySel-pills .multisel-placeholder");
-      if (countryPh) countryPh.textContent = "All countries";
-      const cropPh = document.querySelector("#cropSel-pills .multisel-placeholder");
-      if (cropPh) cropPh.textContent = "All crops";
-      updateSelectionInfo();
+      syncSelectionState();
       updateAll();
     });
   }
@@ -1315,7 +1326,7 @@ const BarChart = (() => {
   // barMetric: "temp" | "Yield" | "Production" | "Area harvested"
   // barRank  : "top"  | "bottom"
   // barN     : number of countries shown
-  const local = { barMetric: "temp", barRank: "top", barN: 15 };
+  const local = { barMetric: "temp", barRank: "top", barN: 15, visibleCountries: [] };
 
   // Labels, formatters, and colors for each ranking metric.
   const METRIC_META = {
@@ -1370,6 +1381,17 @@ const BarChart = (() => {
       local.barN = +this.value;
       update();
     });
+
+    const selectShownBtn = document.getElementById("selectBarCountriesBtn");
+    if (selectShownBtn) {
+      selectShownBtn.addEventListener("click", () => {
+        if (!local.visibleCountries.length) return;
+        const shownSelected = local.visibleCountries.every(country => State.selectedCountries.has(country))
+          && State.selectedCountries.size === local.visibleCountries.length;
+        setSelectedCountries(shownSelected ? [] : local.visibleCountries);
+        updateAll();
+      });
+    }
   }
 
   function buildBarData() {
@@ -1397,7 +1419,17 @@ const BarChart = (() => {
   // Rebuild the ranking and redraw bars for the selected metric.
   function update() {
     const data = buildBarData();
-    if (!data.length) return;
+    if (!data.length) {
+      local.visibleCountries = [];
+      const selectShownBtn = document.getElementById("selectBarCountriesBtn");
+      if (selectShownBtn) {
+        selectShownBtn.classList.remove("active");
+        selectShownBtn.textContent = "Select shown";
+        selectShownBtn.disabled = true;
+      }
+      return;
+    }
+    local.visibleCountries = data.map(d => d.country);
 
     const meta   = METRIC_META[local.barMetric] || METRIC_META["temp"];
     const innerW = width - margin.left - margin.right;
@@ -1446,6 +1478,15 @@ const BarChart = (() => {
       : `${State.selectedCrops.size} Crops`;
     document.getElementById("barPanelTitle").textContent =
       `Country Rankings — ${meta.label} · ${cropStr} · ${State.year}`;
+
+    const selectShownBtn = document.getElementById("selectBarCountriesBtn");
+    if (selectShownBtn) {
+      const shownSelected = local.visibleCountries.every(country => State.selectedCountries.has(country))
+        && State.selectedCountries.size === local.visibleCountries.length;
+      selectShownBtn.classList.toggle("active", shownSelected);
+      selectShownBtn.textContent = shownSelected ? "Deselect shown" : "Select shown";
+      selectShownBtn.disabled = !local.visibleCountries.length;
+    }
 
     const barSel = svg.selectAll(".bar-rect").data(data, d => d.country);
     barSel.join(
