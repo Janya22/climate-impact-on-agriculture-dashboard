@@ -1,36 +1,58 @@
-
-This is the repository for the the Data Visualisation & Analytics course group project.
-
-You must work from this template on GitLab.
-
-Remember that we will adjust your individual grade based on your contributions on this repository.
-
-### TODO
-
- - [ ] One member of the group (e.g., designated group leader), must fork the project template (see screenshot below).
-    - Move the project under your namespace (e.g., `abc1234`)
-    - Rename the project name with to include: your cohort (_F21DV_ or _F20DV_), your campus (_DU_, _ED_, _MY_), and your group number. For example:
-        - F21DV DU Group 8
-        - F20DV MY Group 2
-        - F21DV ED Group 11
-
-![Fork Screenshot](img/fork_screenshot.png)
-
- - [ ] That same group member then invites other group members to the project (see screenshots below).
-    - Open the members' panel, from the link on the side bar
-    - Click on _Invite members_
-    - In the modal, enter your group members' username, make sure to add them with the _Owner_ permissions.
-    - Click _Invite_
-    - Lecturers and TAs should already part of the forked project. 
-
-![Mambers Panel](img/members_tab.png)
-![Invite Button](img/invite_members.png)
-![Invite Modal](img/invite_modal.png)
-
- - [ ] Every group member can clone the repository to work on the project.
- - [ ] After cloning (for every new machine you sue) make sure that your username and email are set correctly.
-    - `git config user.name "Firstname Lastname"`
-    - `git config user.email "abc1234@hw.ac.uk"`
-    - If other deatils are used (e.g., global GitHub config), we might not be able to tell who is who, and therefore who should get marks.
-
-Unless you know how to work with those already, we recommend you do not use branches. If your commits history gets lost with a bad merge, we might not be able to see it.
+Climate Risks Dashboard
+An interactive data visualisation dashboard that explores the relationship between temperature change and agricultural production across 184 countries and 7 staple crops from 1961 to 2023.
+The project focuses on identifying potential climate stress patterns using correlation-based analysis and multiple visualisations.
+ 
+Project Overview
+This dashboard allows users to analyse how rising temperatures relate to agricultural metrics such as:
+•	Yield (kg/ha)
+•	Production (tonnes)
+•	Area Harvested (hectares)
+It combines multiple visualisations to present a clear data story on the impact of climate change on food production.
+Regions highlighted represent potential climate stress hotspots, based on correlation rather than direct causation.
+ 
+Features
+Interactive Controls
+•	Selection of metric (Yield, Production, Area Harvested)
+•	Adjustable year range (1961–2023)
+•	Multi-selection of countries and crops
+•	Reset functionality for quick analysis
+ 
+Visualisations
+Temperature Trend Map
+Displays global temperature anomalies over time.
+Crop Trend Line Chart
+Shows agricultural trends across selected years.
+Climate Risk Map
+Highlights regions with potential climate-related risks.
+Country Ranking Bar Chart
+Ranks countries based on selected metrics.
+Correlation Heat Map
+Displays country–crop level correlation between temperature change and the selected agricultural metric.
+A colour scale ranging from -1 to 1 represents the strength and direction of relationships.
+ 
+Key Insight
+Global agricultural trends may appear stable due to technological advancements such as improved seeds, fertilizers, and irrigation.
+This dashboard addresses this by focusing on country–crop level analysis to reveal uneven impacts of climate change and identify more vulnerable regions.
+ 
+Technologies Used
+•	HTML5
+•	CSS3
+•	JavaScript
+•	D3.js (v7)
+•	TopoJSON
+ 
+Project Structure
+index.html – Main dashboard layout
+main.js – Data processing and visualisations
+main.css – Styling and UI design
+d3.v7.min.js – D3 library
+ 
+How to Run
+1.	Download or clone the repository
+2.	Open the index.html file in a web browser
+3.	Use the controls to explore the data
+No server setup is required.
+ 
+Data Sources
+•	FAOSTAT Crops and Livestock Data (Kaggle)
+•	IMF Climate Data Portal
