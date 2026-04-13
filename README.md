@@ -12,8 +12,11 @@ This dashboard allows users to analyse how rising temperatures relate to key agr
 
 It combines multiple visualisations to present a clear data story on the impact of climate change on food production.
 
+Data Sources
+FAOSTAT Crops and Livestock Data (Kaggle)
+IMF Climate Data Portal
 
-Dataset:
+Dataset Directory:
 The raw crop dataset is saved in data/raw_data_kaggle.csv and the raw temperature dataset is saved in data/raw_data_imf.csv
 The cleaned preprocessed merged dataset is saved in data/Merged_FAOSTAT_Cleaned.csv
 
@@ -59,11 +62,9 @@ Project Structure
 - d3.v7.min.js – D3 library
 
 How to Run
-Download or clone the repository
-Open the index.html file in a web browser
-Use the controls to explore the data
-No server setup is required.
+- Download or clone the repository
+- Open the index.html file in a web browser
+- Use the controls to explore the data
+- No server setup is required.
 
-Data Sources
-FAOSTAT Crops and Livestock Data (Kaggle)
-IMF Climate Data Portal
+
