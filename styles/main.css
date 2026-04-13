@@ -13,7 +13,7 @@
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
-
+/*page background and typography*/
 html, body {
       background: var(--bg);
       color: var(--text);
@@ -21,7 +21,7 @@ html, body {
       font-size: 13px;
       min-height: 100vh;
     }
-
+/*top banner with page title and summ stats*/
 .hero {
   background: linear-gradient(135deg, #1a3a6b 0%, #2255aa 100%);
   color: #fff;
@@ -38,7 +38,7 @@ html, body {
   font-size: 13px;
 }
 
-
+/*filter and control bar*/
 #controls {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
@@ -49,7 +49,7 @@ html, body {
   gap: 24px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.05);
 }
-
+/*general control groups for labels*/
 .ctrl-group {
   display: flex;
   align-items: center;
@@ -91,7 +91,7 @@ html, body {
   width: 130px;
   accent-color: var(--accent);
 }
-
+/*year range slider*/
 .year-ctrl-group {
   align-items: center;
   gap: 18px;
@@ -190,7 +190,7 @@ html, body {
   pointer-events: auto;
   box-shadow: 0 1px 3px rgba(26,58,107,0.25);
 }
-
+/*multi-select filter dropdown*/
 .multisel-wrap {
   position: relative;
 }
@@ -375,7 +375,7 @@ html, body {
   color: var(--accent);
   font-weight: 700;
 }
-
+/*reset button*/
 #resetBtn {
   background: var(--accent);
   border: none;
@@ -446,7 +446,7 @@ html, body {
   white-space: nowrap;
 }
 
-
+/*header stats*/
 #statBadges {
   display: flex;
   gap: 18px;
@@ -481,7 +481,7 @@ html, body {
   background: rgba(255,255,255,0.2);
   align-self: stretch;
 }
-
+/*main dashboardarea with charts*/
 #main {
   padding: 20px 28px;
   display: flex;
@@ -514,7 +514,7 @@ html, body {
 #row2 { display: flex; gap: 16px; }
 #linePanel { flex: 1.35; overflow: hidden; }
 #barPanel  { flex: 1; overflow: hidden; }
-
+/*chart and axis styling shared by mulitple visuals*/
 .chart-area { width: 100%; overflow: visible; }
 
 .axis {
@@ -541,7 +541,7 @@ html, body {
   pointer-events: stroke;
   cursor: pointer;
 }
-
+/*tooltip on hover*/
 #tooltip {
       position: fixed;
       pointer-events: none;
@@ -571,7 +571,7 @@ html, body {
 #tooltip .tt-row { display: flex; justify-content: space-between; gap: 12px; }
 #tooltip .tt-key { color: var(--text-muted); }
 #tooltip .tt-val { font-weight: 600; color: var(--text); }
-
+/*legend styles*/
 .legend-wrap {
       display: flex;
       flex-wrap: wrap;
@@ -605,7 +605,7 @@ html, body {
       flex-shrink: 0;
     }
 
-  
+/*map and heatmap styles*/  
   .country-path {
     stroke: #c8d8ec;
     stroke-width: 0.5;
