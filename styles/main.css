@@ -211,6 +211,7 @@ html, body {
   text-align: left;
   flex-wrap: wrap;
   row-gap: 3px;
+  overflow: hidden;
   transition: border-color 0.15s, box-shadow 0.15s;
   outline: none;
   font-family: var(--font);
@@ -231,11 +232,17 @@ html, body {
   gap: 4px;
   flex: 1;
   min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .multisel-placeholder {
   color: var(--text-muted);
   font-size: 12px;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 
@@ -306,6 +313,13 @@ html, body {
   color: var(--text);
   transition: background 0.1s;
   user-select: none;
+}
+
+.multisel-item span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .multisel-item:hover {
@@ -402,6 +416,10 @@ html, body {
   color: var(--danger);
   font-style: italic;
   font-weight: 600;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 
@@ -421,6 +439,10 @@ html, body {
   font-weight: 700;
   color: #ffffff;
   line-height: 1.1;
+  max-width: 210px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .stat-badge .lbl {
@@ -543,6 +565,10 @@ html, body {
       padding: 3px 8px;
       border-radius: 20px;
       border: 1px solid transparent;
+      max-width: 160px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
       transition: border-color 0.2s, color 0.2s;
     }
 
@@ -569,6 +595,38 @@ html, body {
 
 
   .grad-legend rect { stroke: none; }
+
+  .risk-legend {
+    pointer-events: none;
+    font-size: 10.5px;
+    fill: var(--text-muted);
+  }
+
+  .risk-legend-title {
+    font-size: 11px;
+    font-weight: 700;
+    fill: var(--text);
+  }
+
+  .risk-legend-bar {
+    stroke: #d6e0eb;
+    stroke-width: 0.7;
+  }
+
+  .risk-legend-tick line {
+    stroke: #8192a8;
+    stroke-width: 0.8;
+  }
+
+  .risk-legend-tick text,
+  .no-data-legend text {
+    fill: var(--text-muted);
+  }
+
+  .no-data-legend rect {
+    stroke: #d6e0eb;
+    stroke-width: 0.7;
+  }
 
   .heat-cell {
     cursor: pointer;

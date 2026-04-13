@@ -12,6 +12,8 @@ const Data = {
   byCountryYearCrop: null,
   byCountryYear: null,
   riskRows: [],
+  riskRangeStart: null,
+  riskRangeEnd: null,
 };
 
 // Predefined story cards defined by significant years in global agriculture history.
@@ -72,7 +74,7 @@ async function loadData() {
     crop:       d.Crop,
     element:    d.Element,
     agriValue:  +d.Agri_Value  || 0,
-    tempChange: +d.Temp_Change || null,
+    tempChange: d.Temp_Change === "" ? null : +d.Temp_Change,
   }));
 
   Data.raw = raw;
@@ -345,6 +347,11 @@ function getSelectedCropNames() {
   return State.selectedCrops.size ? [...State.selectedCrops] : [...Data.crops];
 }
 
+function shortLabel(value, maxLength = 18) {
+  const label = String(value);
+  return label.length > maxLength ? `${label.slice(0, maxLength - 3)}...` : label;
+}
+
 // Use the selected start and end years as the visible range for line charts.
 function getSelectedYearRange() {
   const minYear = Data.years[0];
@@ -376,6 +383,10 @@ function updateStoryCard() {
 
 // Central redraw path after any filter or chart interaction changes State.
 function updateAll() {
+  const [rangeStart, rangeEnd] = getSelectedYearRange();
+  if (Data.riskRangeStart !== rangeStart || Data.riskRangeEnd !== rangeEnd) {
+    computeRiskRows(rangeStart, rangeEnd);
+  }
   TempChart.update();
   CropTrendChart.update();
   RiskMapChart.update();
@@ -603,6 +614,10 @@ function linearSlope(x, y) {
 // Convert a metric to a 0-1 range so different risk factors can combine.
 function normalizeRows(rows, inputKey, outputKey) {
   const vals = rows.map(r => r[inputKey]).filter(v => v != null && isFinite(v));
+  if (!vals.length) {
+    rows.forEach(r => { r[outputKey] = 0; });
+    return;
+  }
   const min = d3.min(vals);
   const max = d3.max(vals);
   const span = (max - min) || 1;
@@ -611,8 +626,16 @@ function normalizeRows(rows, inputKey, outputKey) {
   });
 }
 
+const RISK_WEIGHTS = {
+  sensitivity: 0.30,
+  warming: 0.25,
+  variability: 0.20,
+  exposure: 0.15,
+  yieldDecline: 0.10,
+};
+
 // Precompute risk values for each country/crop pair before drawing the map.
-function computeRiskRows() {
+function computeRiskRows(rangeStart = Data.years[0], rangeEnd = Data.years[Data.years.length - 1]) {
   const results = [];
 
   Data.countries.forEach(country => {
@@ -623,25 +646,40 @@ function computeRiskRows() {
       const years = [];
       const yieldVals = [];
       const tempVals = [];
+      const areaVals = [];
+      const productionVals = [];
 
       byYear.forEach((cropMap, year) => {
+        if (+year < rangeStart || +year > rangeEnd) return;
         const recs = cropMap.get(crop);
         if (!recs) return;
         const ys = recs.filter(r => r.element === "Yield").map(r => r.agriValue);
         const ts = recs.map(r => r.tempChange).filter(v => v != null);
+        const areas = recs.filter(r => r.element === "Area harvested").map(r => r.agriValue);
+        const prods = recs.filter(r => r.element === "Production").map(r => r.agriValue);
         if (!ys.length || !ts.length) return;
         years.push(+year);
         yieldVals.push(d3.mean(ys));
         tempVals.push(d3.mean(ts));
+        areaVals.push(areas.length ? d3.sum(areas) : null);
+        productionVals.push(prods.length ? d3.sum(prods) : null);
       });
 
       if (new Set(years).size < 10) return;
 
-      // Higher risk is tied to negative yield-temperature correlation, warming trend, and yield variability.
+      // Indicator-based risk: hazard, exposure, and vulnerability/sensitivity signals.
       const corr = pearsonCorr(yieldVals, tempVals);
       const negCorr = corr != null && corr < 0 ? Math.abs(corr) : 0;
       const tempSlope = linearSlope(years, tempVals);
-      const variability = d3.mean(yieldVals) ? (stdDev(yieldVals) / d3.mean(yieldVals)) : null;
+      const tempWarming = tempSlope != null && tempSlope > 0 ? tempSlope : 0;
+      const meanYield = d3.mean(yieldVals);
+      const yieldSlope = linearSlope(years, yieldVals);
+      const yieldTrend = meanYield ? yieldSlope / meanYield : null;
+      const yieldDecline = yieldTrend != null && yieldTrend < 0 ? Math.abs(yieldTrend) : 0;
+      const variability = meanYield ? (stdDev(yieldVals) / meanYield) : null;
+      const areaExposure = d3.mean(areaVals.filter(v => v != null));
+      const productionExposure = d3.mean(productionVals.filter(v => v != null));
+      const cropExposure = areaExposure || productionExposure || null;
 
       results.push({
         country,
@@ -649,17 +687,30 @@ function computeRiskRows() {
         correlation: corr,
         negCorr,
         tempSlope,
+        tempWarming,
+        yieldSlope,
+        yieldTrend,
+        yieldDecline,
         yieldVariability: variability,
+        cropExposure,
+        exposureSource: areaExposure ? "Area harvested" : productionExposure ? "Production" : null,
       });
     });
   });
 
-  normalizeRows(results, "negCorr", "normCorr");
-  normalizeRows(results, "tempSlope", "normTempSlope");
+  normalizeRows(results, "negCorr", "normSensitivity");
+  normalizeRows(results, "tempWarming", "normWarming");
   normalizeRows(results, "yieldVariability", "normVariability");
+  normalizeRows(results, "cropExposure", "normExposure");
+  normalizeRows(results, "yieldDecline", "normYieldDecline");
 
   results.forEach(r => {
-    r.riskScore = r.normCorr * r.normTempSlope * r.normVariability;
+    r.riskScore =
+      (RISK_WEIGHTS.sensitivity * r.normSensitivity) +
+      (RISK_WEIGHTS.warming * r.normWarming) +
+      (RISK_WEIGHTS.variability * r.normVariability) +
+      (RISK_WEIGHTS.exposure * r.normExposure) +
+      (RISK_WEIGHTS.yieldDecline * r.normYieldDecline);
     r.riskCategory = r.riskScore < 0.25 ? "Low Risk"
       : r.riskScore < 0.5 ? "Moderate Risk"
       : r.riskScore < 0.75 ? "High Risk"
@@ -667,6 +718,8 @@ function computeRiskRows() {
   });
 
   Data.riskRows = results;
+  Data.riskRangeStart = rangeStart;
+  Data.riskRangeEnd = rangeEnd;
 }
 
 // World-atlas uses numeric country IDs, while the CSV uses ISO3 codes.
@@ -697,6 +750,11 @@ const ISO3_TO_NUM = {
   "USA":"840","URY":"858","UZB":"860","VEN":"862","VNM":"704","YEM":"887",
   "ZMB":"894","ZWE":"716","MKD":"807","SRB":"688","MNE":"499","SVK":"703",
   "SVN":"705","LUX":"442","ISL":"352","MLT":"470","GUY":"328","SUR":"740",
+  "ATG":"28","BHS":"44","BHR":"48","BRB":"52","BRN":"96","COK":"184",
+  "DMA":"212","FRO":"234","GUF":"254","PYF":"258","GRD":"308","GLP":"312",
+  "MTQ":"474","NCL":"540","NIU":"570","PRI":"630","QAT":"634","KNA":"659",
+  "LCA":"662","VCT":"670","WSM":"882","SGP":"702","SLB":"90","TON":"776",
+  "ARE":"784","VUT":"548",
   "PRK":"408","TLS":"626","SSD":"728","COM":"174","MUS":"480","SYC":"690",
   "MDG":"450","ZAN":"834","TZA":"834","STP":"678","CPV":"132","GNQ":"226",
   "CAF":"140","ERI":"232","DJI":"262","SOM":"706","ETH":"231","KEN":"404",
@@ -713,9 +771,9 @@ const ISO3_TO_NUM = {
 
 // Convert a world-atlas country ID back to the CSV country name.
 function countryFromTopoId(numId) {
-  const id = String(numId);
+  const id = +numId;
   for (const [iso3, num] of Object.entries(ISO3_TO_NUM)) {
-    if (num !== id) continue;
+    if (+num !== id) continue;
     for (const [name, code] of Data.iso3Map.entries()) {
       if (code === iso3) return name;
     }
@@ -1028,20 +1086,53 @@ const CropTrendChart = (() => {
 
 // Chart: Risk score choropleth map.
 const RiskMapChart = (() => {
-  let svg, g, path, projection, width, height, features, color, zoom;
+  let svg, g, legendG, path, projection, width, height, mapHeight, features, color, zoom;
 
   // Set up the map projection, country paths, click/hover, and zoom.
   function init(world) {
     const container = document.getElementById("linePanel");
     width = container.clientWidth - 32;
-    height = 280;
+    mapHeight = 280;
+    height = 330;
 
     svg = d3.select("#riskMapSvg").attr("width", width).attr("height", height);
-    projection = d3.geoNaturalEarth1().scale(width / 7.5).translate([width / 2, height / 2 + 8]);
+    projection = d3.geoNaturalEarth1().scale(width / 7.5).translate([width / 2, mapHeight / 2 + 8]);
     path = d3.geoPath(projection);
     features = topojson.feature(world, world.objects.countries).features;
-    console.log(features[0]); 
-    color = d3.scaleSequential().domain([0, 1]).interpolator(d3.interpolateReds);
+    color = d3.scaleLinear()
+      .domain([0, 0.25, 0.5, 0.75, 1])
+      .range(["#d9f0e4", "#7fcdbb", "#f1d65b", "#e76f51", "#8f1d3d"])
+      .clamp(true);
+
+    const defs = svg.append("defs");
+    const noDataPattern = defs.append("pattern")
+      .attr("id", "riskNoDataPattern")
+      .attr("patternUnits", "userSpaceOnUse")
+      .attr("width", 6)
+      .attr("height", 6);
+
+    noDataPattern.append("rect")
+      .attr("width", 6)
+      .attr("height", 6)
+      .attr("fill", "#eef1f4");
+
+    noDataPattern.append("path")
+      .attr("d", "M0,6 L6,0")
+      .attr("stroke", "#aeb8c5")
+      .attr("stroke-width", 1);
+
+    const legendGradient = defs.append("linearGradient")
+      .attr("id", "riskLegendGradient")
+      .attr("x1", "0%")
+      .attr("x2", "100%")
+      .attr("y1", "0%")
+      .attr("y2", "0%");
+
+    color.domain().forEach(value => {
+      legendGradient.append("stop")
+        .attr("offset", `${value * 100}%`)
+        .attr("stop-color", color(value));
+    });
 
     g = svg.append("g");
     g.selectAll("path")
@@ -1053,6 +1144,7 @@ const RiskMapChart = (() => {
       .on("mouseleave", () => tt.hide())
       .on("click", onClick);
 
+    drawLegend();
   
   zoom = d3.zoom()
     .scaleExtent([1, 8])
@@ -1073,6 +1165,72 @@ const RiskMapChart = (() => {
   }
   }
 
+  function drawLegend() {
+    const legendWidth = Math.min(340, width * 0.52);
+    const legendHeight = 8;
+    const legendX = 14;
+    const legendY = mapHeight + 22;
+    const thresholds = [
+      { label: "Low", x: 0 },
+      { label: "Moderate", x: 0.25 },
+      { label: "High", x: 0.5 },
+      { label: "Severe", x: 0.75 },
+      { label: "1.0", x: 1 },
+    ];
+
+    legendG = svg.append("g")
+      .attr("class", "risk-legend")
+      .attr("transform", `translate(${legendX}, ${legendY})`);
+
+    legendG.append("text")
+      .attr("class", "risk-legend-title")
+      .attr("x", 0)
+      .attr("y", -8)
+      .text("Risk score");
+
+    legendG.append("rect")
+      .attr("class", "risk-legend-bar")
+      .attr("width", legendWidth)
+      .attr("height", legendHeight)
+      .attr("rx", 3)
+      .attr("ry", 3)
+      .attr("fill", "url(#riskLegendGradient)");
+
+    legendG.selectAll(".risk-legend-tick")
+      .data(thresholds)
+      .join("g")
+      .attr("class", "risk-legend-tick")
+      .attr("transform", d => `translate(${d.x * legendWidth}, 0)`)
+      .call(tick => {
+        tick.append("line")
+          .attr("y2", legendHeight + 5);
+        tick.append("text")
+          .attr("y", legendHeight + 17)
+          .attr("text-anchor", d => d.x === 0 ? "start" : d.x === 1 ? "end" : "middle")
+          .text(d => d.label);
+      });
+
+    const noDataX = legendX + legendWidth + 30;
+    const noData = svg.append("g")
+      .attr("class", "risk-legend no-data-legend")
+      .attr("transform", `translate(${noDataX}, ${legendY - 1})`);
+
+    noData.append("rect")
+      .attr("width", 18)
+      .attr("height", 10)
+      .attr("fill", "#eef1f4");
+
+    noData.append("rect")
+      .attr("width", 18)
+      .attr("height", 10)
+      .attr("fill", "url(#riskNoDataPattern)");
+
+    noData.append("text")
+      .attr("x", 25)
+      .attr("y", 9)
+      .text("No data");
+  }
+
   // Keep the highest-risk crop row for each country.
   function riskByCountry() {
     const rows = State.selectedCrops.size === 0
@@ -1089,13 +1247,17 @@ const RiskMapChart = (() => {
 
   // Recolor countries and dim non-selected countries.
   function update() {
+    const [rangeStart, rangeEnd] = getSelectedYearRange();
+    const title = document.getElementById("riskMapTitle");
+    if (title) title.textContent = `Yield-Based Climate Risk Map - ${rangeStart}-${rangeEnd}`;
+
     const byCountry = riskByCountry();
 
     g.selectAll(".country-path")
       .attr("fill", d => {
         const country = countryFromTopoId(d.id);
         const row = country ? byCountry.get(country) : null;
-        return row ? color(row.riskScore) : "#c7d6e5";
+        return row ? color(row.riskScore) : "url(#riskNoDataPattern)";
       })
       .attr("class", d => {
         const country = countryFromTopoId(d.id);
@@ -1120,9 +1282,13 @@ const RiskMapChart = (() => {
       <div class="tt-row"><span class="tt-key">Risk Score</span><span class="tt-val">${r.riskScore.toFixed(3)}</span></div>
       <div class="tt-row"><span class="tt-key">Category</span><span class="tt-val">${r.riskCategory}</span></div>
       <div class="tt-row"><span class="tt-key">Crop</span><span class="tt-val">${r.crop}</span></div>
+      <div class="tt-row"><span class="tt-key">Temp Sensitivity</span><span class="tt-val">${r.normSensitivity.toFixed(2)}</span></div>
+      <div class="tt-row"><span class="tt-key">Warming Trend</span><span class="tt-val">${r.normWarming.toFixed(2)}</span></div>
+      <div class="tt-row"><span class="tt-key">Yield Variability Score</span><span class="tt-val">${r.normVariability.toFixed(2)}</span></div>
+      <div class="tt-row"><span class="tt-key">Exposure</span><span class="tt-val">${r.normExposure.toFixed(2)}</span></div>
+      <div class="tt-row"><span class="tt-key">Yield Decline</span><span class="tt-val">${r.normYieldDecline.toFixed(2)}</span></div>
       <div class="tt-row"><span class="tt-key">Correlation</span><span class="tt-val">${r.correlation == null ? "—" : r.correlation.toFixed(3)}</span></div>
-      <div class="tt-row"><span class="tt-key">TempSlope</span><span class="tt-val">${r.tempSlope == null ? "—" : r.tempSlope.toFixed(5)}</span></div>
-      <div class="tt-row"><span class="tt-key">Yield Variability</span><span class="tt-val">${r.yieldVariability == null ? "—" : r.yieldVariability.toFixed(3)}</span></div>
+      <div class="tt-row"><span class="tt-key">Temp Slope</span><span class="tt-val">${r.tempSlope == null ? "—" : r.tempSlope.toFixed(5)}</span></div>
     `);
   }
 
@@ -1261,8 +1427,13 @@ const BarChart = (() => {
     svg.select(".x-axis-bar").transition().duration(400)
       .call(d3.axisBottom(xScale).ticks(5).tickFormat(xFmt));
     svg.select(".y-axis-bar").transition().duration(400)
-      .call(d3.axisLeft(yScale).tickSize(0))
-      .selectAll("text").attr("fill","#1a2a3a").attr("font-size","10px");
+      .call(d3.axisLeft(yScale).tickSize(0).tickFormat(d => shortLabel(d, 18)))
+      .selectAll("text")
+        .attr("fill","#1a2a3a")
+        .attr("font-size","10px")
+        .each(function(d) {
+          d3.select(this).selectAll("title").data([d]).join("title").text(d);
+        });
     svg.select(".y-axis-bar .domain").remove();
 
     // X-axis label
@@ -1374,6 +1545,7 @@ const HeatmapChart = (() => {
   // Build one correlation value for each visible country/crop pair.
   function buildHeatData() {
     const metric = State.metric;
+    const [rangeStart, rangeEnd] = getSelectedYearRange();
     const countries = State.selectedCountries.size
       ? [...State.selectedCountries]
       : Data.countries.slice(0, MAX_COUNTRIES);
@@ -1390,6 +1562,7 @@ const HeatmapChart = (() => {
         const yearsSeen = new Set();
 
         cMap.forEach((cropMap, year) => {
+          if (+year < rangeStart || +year > rangeEnd) return;
           const recs = cropMap.get(crop);
           if (!recs) return;
           const tVals = recs.map(r => r.tempChange).filter(v => v != null);
@@ -1413,6 +1586,9 @@ const HeatmapChart = (() => {
   function update() {
     const { rows, countries, crops } = buildHeatData();
     if (!rows.length) return;
+    const [rangeStart, rangeEnd] = getSelectedYearRange();
+    const title = document.querySelector("#heatPanel .section-title");
+    if (title) title.textContent = `Climate Sensitivity Matrix (Country x Crop Correlation) - ${rangeStart}-${rangeEnd}`;
 
     xScale = d3.scaleBand()
       .domain(crops)
@@ -1428,13 +1604,20 @@ const HeatmapChart = (() => {
 
 
     svg.select(".x-axis-heat").transition().duration(400)
-      .call(d3.axisBottom(xScale).tickSize(3));
+      .call(d3.axisBottom(xScale).tickSize(3).tickFormat(d => shortLabel(d, 16)))
+      .selectAll("text")
+        .each(function(d) {
+          d3.select(this).selectAll("title").data([d]).join("title").text(d);
+        });
     svg.select(".y-axis-heat").transition().duration(400)
-      .call(d3.axisLeft(yScale).tickSize(0))
+      .call(d3.axisLeft(yScale).tickSize(0).tickFormat(d => shortLabel(d, 20)))
       .selectAll("text")
         .attr("fill", d => State.selectedCountries.size && State.selectedCountries.has(d) ? "#c02020" : "#5a7490")
         .attr("font-size", "9.5px")
-        .attr("font-weight", d => State.selectedCountries.size && State.selectedCountries.has(d) ? "700" : "400");
+        .attr("font-weight", d => State.selectedCountries.size && State.selectedCountries.has(d) ? "700" : "400")
+        .each(function(d) {
+          d3.select(this).selectAll("title").data([d]).join("title").text(d);
+        });
     svg.select(".y-axis-heat .domain").remove();
 
     // Use country + crop as a unique ID for each heat map cell.
@@ -1492,7 +1675,7 @@ async function main() {
     await loadData();
     computeRiskRows();
 
-    const world = await d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json");
+    const world = await d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json");
 
     // Build the filters and connect their event listeners.
     updateStatBadges();
