@@ -1,4 +1,5 @@
-Climate Risks Dashboard
+Climate Risks Dashboard\
+
 Overview:
 An interactive data visualisation dashboard that explores the relationship between temperature change and agricultural production across 184 countries and 7 staple crops from 1961 to 2023.
 The project focuses on identifying potential climate stress patterns using correlation-based analysis and multiple visualisations.
@@ -12,13 +13,15 @@ This dashboard allows users to analyse how rising temperatures relate to key agr
 
 It combines multiple visualisations to present a clear data story on the impact of climate change on food production.
 
-Data Sources
-FAOSTAT Crops and Livestock Data (Kaggle)
-IMF Climate Data Portal
+Data Sources:
+- FAOSTAT Crops and Livestock Data (Kaggle)
+- IMF Climate Data Portal
+
 
 Dataset Directory:
-The raw crop dataset is saved in data/raw_data_kaggle.csv and the raw temperature dataset is saved in data/raw_data_imf.csv
-The cleaned preprocessed merged dataset is saved in data/Merged_FAOSTAT_Cleaned.csv
+- The raw crop dataset is saved in data/raw_data_kaggle.csv and the raw temperature dataset is saved in data/raw_data_imf.csv
+- The cleaned preprocessed merged dataset is saved in data/Merged_FAOSTAT_Cleaned.csv
+
 
 Features:
 - Interactive Controls
